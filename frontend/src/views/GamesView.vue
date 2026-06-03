@@ -67,9 +67,10 @@
                     <!-- Times e Placar -->
                     <div class="flex items-center justify-center my-4">
                         <div class="flex-1 text-center">
-                            <div v-if="game.home_logo_url" class="w-12 h-12 mx-auto mb-2">
-                                <img :src="game.home_logo_url" :alt="game.home_team" class="w-full h-full object-contain" />
-                            </div>
+                            <img v-if="getFlagUrl(game.home_team)"
+                                :src="getFlagUrl(game.home_team)"
+                                :alt="game.home_team"
+                                class="w-12 h-9 mx-auto mb-2 object-cover rounded shadow-sm" />
                             <div v-else class="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
                                 <span class="text-lg font-bold text-gray-500">{{ game.home_team?.charAt(0) }}</span>
                             </div>
@@ -86,9 +87,10 @@
                         </div>
 
                         <div class="flex-1 text-center">
-                            <div v-if="game.away_logo_url" class="w-12 h-12 mx-auto mb-2">
-                                <img :src="game.away_logo_url" :alt="game.away_team" class="w-full h-full object-contain" />
-                            </div>
+                            <img v-if="getFlagUrl(game.away_team)"
+                                :src="getFlagUrl(game.away_team)"
+                                :alt="game.away_team"
+                                class="w-12 h-9 mx-auto mb-2 object-cover rounded shadow-sm" />
                             <div v-else class="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
                                 <span class="text-lg font-bold text-gray-500">{{ game.away_team?.charAt(0) }}</span>
                             </div>
@@ -117,6 +119,7 @@
 
 <script setup>
 import api from '@/services/api'
+import { getFlagUrl } from '@/utils/countryFlags'
 import { logger } from '@/utils/logger'
 import { onMounted, ref } from 'vue'
 

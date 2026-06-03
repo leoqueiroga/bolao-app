@@ -42,8 +42,10 @@
                 <div class="flex items-center justify-center mb-6">
                     <!-- Time da Casa -->
                     <div class="text-center flex-1 flex flex-col items-center">
-                        <img v-if="game.home_logo_url" :src="game.home_logo_url" :alt="game.home_team"
-                            class="w-20 h-20 object-contain mb-3" @error="$event.target.style.display='none'" />
+                        <img v-if="getFlagUrl(game.home_team, 160)"
+                            :src="getFlagUrl(game.home_team, 160)"
+                            :alt="game.home_team"
+                            class="w-20 h-14 object-cover rounded shadow-sm mb-3" />
                         <div v-else class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                             <span class="text-3xl font-bold text-gray-500">{{ game.home_team?.charAt(0) }}</span>
                         </div>
@@ -61,8 +63,10 @@
 
                     <!-- Time Visitante -->
                     <div class="text-center flex-1 flex flex-col items-center">
-                        <img v-if="game.away_logo_url" :src="game.away_logo_url" :alt="game.away_team"
-                            class="w-20 h-20 object-contain mb-3" @error="$event.target.style.display='none'" />
+                        <img v-if="getFlagUrl(game.away_team, 160)"
+                            :src="getFlagUrl(game.away_team, 160)"
+                            :alt="game.away_team"
+                            class="w-20 h-14 object-cover rounded shadow-sm mb-3" />
                         <div v-else class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                             <span class="text-3xl font-bold text-gray-500">{{ game.away_team?.charAt(0) }}</span>
                         </div>
@@ -278,6 +282,7 @@
 <script setup>
 import api from '@/services/api'
 import { useToastStore } from '@/stores/toast'
+import { getFlagUrl } from '@/utils/countryFlags'
 import { logger } from '@/utils/logger'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
