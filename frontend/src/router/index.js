@@ -83,11 +83,12 @@ const router = createRouter({
 });
 
 export function setupRouterGuards(authStore) {
-    router.beforeEach((to, from, next) => {
+    router.beforeEach(async (to, from, next) => {
+        // Aguardar inicialização do auth antes de qualquer decisão
         if (!authStore.initialized) {
-            next();
-            return;
+            await authStore.initialize();
         }
+
         if (to.meta.requiresAuth && !authStore.isAuthenticated) {
             next("/login");
         } else if (to.meta.guest && authStore.isAuthenticated) {

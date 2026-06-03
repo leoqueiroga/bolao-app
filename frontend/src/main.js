@@ -9,24 +9,13 @@ const app = createApp(App);
 const pinia = createPinia();
 
 app.use(pinia);
+
+// Configurar guards ANTES de usar o router
+const authStore = useAuthStore(pinia);
+setupRouterGuards(authStore);
+
 app.use(router);
+app.mount("#app");
 
-// Inicializar auth store antes de montar a aplicação
-const authStore = useAuthStore();
-
-authStore.initialize().then(() => {
-    // Configurar guards do router após inicialização da auth store
-    setupRouterGuards(authStore);
-
-    // Montar a aplicação
-    app.mount("#app");
-
-    // Após montar, verificar se veio de OAuth e redirecionar
-    if (authStore.isAuthenticated) {
-        const currentPath = window.location.pathname;
-        // Se estiver na página de login ou registro e já autenticado, redirecionar
-        if (currentPath === "/login" || currentPath === "/register") {
-            router.push("/");
-        }
-    }
-});
+// Inicializar a sessão em background (o guard já aguarda o initialized)
+authStore.initialize();
