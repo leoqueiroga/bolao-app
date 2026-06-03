@@ -9,6 +9,7 @@ export const useAuthStore = defineStore("auth", () => {
     const loading = ref(false);
     const error = ref(null);
     const initialized = ref(false);
+    let initPromise = null;
 
     const isAuthenticated = computed(() => !!session.value);
     const isAdmin = computed(() => user.value?.role === "admin");
@@ -142,46 +143,50 @@ export const useAuthStore = defineStore("auth", () => {
     }
 
     async function initialize() {
-        // Evitar múltiplas inicializações
-        if (initialized.value) return;
+        // Retornar mesma promise se já iniciou
+        if (initPromise) return initPromise;
 
-        try {
-            // Verificar sessão existente
-            const {
-                data: { session: currentSession },
-            } = await supabase.auth.getSession();
+        initPromise = (async () => {
+            try {
+                // Verificar sessão existente
+                const {
+                    data: { session: currentSession },
+                } = await supabase.auth.getSession();
 
-            if (currentSession) {
-                session.value = currentSession;
-                await fetchUser();
+                if (currentSession) {
+                    session.value = currentSession;
+                    await fetchUser();
+                }
+            } catch (err) {
+                console.warn("Erro ao inicializar auth:", err);
+            } finally {
+                initialized.value = true;
             }
-        } catch (error) {
-            console.warn("Erro ao inicializar auth:", error);
-        } finally {
-            initialized.value = true;
-        }
 
-        // Escutar mudanças de autenticação (apenas uma vez)
-        supabase.auth.onAuthStateChange(async (event, newSession) => {
-            // Ignorar eventos durante inicialização
-            if (!initialized.value) return;
+            // Escutar mudanças de autenticação (apenas uma vez)
+            supabase.auth.onAuthStateChange(async (event, newSession) => {
+                // Ignorar eventos durante inicialização
+                if (!initialized.value) return;
 
-            console.log("Auth state changed:", event);
+                console.log("Auth state changed:", event);
 
-            // Evitar processar o mesmo estado
-            const sessionChanged =
-                newSession?.access_token !== session.value?.access_token;
+                // Evitar processar o mesmo estado
+                const sessionChanged =
+                    newSession?.access_token !== session.value?.access_token;
 
-            if (event === "SIGNED_IN" && newSession && sessionChanged) {
-                session.value = newSession;
-                await fetchUser();
-            } else if (event === "SIGNED_OUT") {
-                user.value = null;
-                session.value = null;
-            } else if (event === "TOKEN_REFRESHED" && newSession) {
-                session.value = newSession;
-            }
-        });
+                if (event === "SIGNED_IN" && newSession && sessionChanged) {
+                    session.value = newSession;
+                    await fetchUser();
+                } else if (event === "SIGNED_OUT") {
+                    user.value = null;
+                    session.value = null;
+                } else if (event === "TOKEN_REFRESHED" && newSession) {
+                    session.value = newSession;
+                }
+            });
+        })();
+
+        return initPromise;
     }
 
     return {
