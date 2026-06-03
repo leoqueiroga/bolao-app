@@ -7,11 +7,14 @@ set -e
 echo "==> Atualizando código..."
 git pull origin main
 
-echo "==> Instalando dependências..."
-npm ci --omit=dev
+echo "==> Instalando dependências (incluindo devDependencies para build)..."
+npm ci
 
 echo "==> Compilando..."
 npm run build
+
+echo "==> Removendo devDependencies após build..."
+npm prune --omit=dev
 
 echo "==> Criando pasta de logs..."
 mkdir -p logs
