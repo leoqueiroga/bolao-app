@@ -1,0 +1,16 @@
+# Env files
+.env
+.env.production
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+*.log
+logs/
+
+# PM2
+.pm2/

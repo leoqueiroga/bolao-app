@@ -1,0 +1,30 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Essas variáveis são intencionalmente públicas (Supabase anon key é pública)
+  SECRETS_SCAN_OMIT_KEYS = "VITE_API_URL,VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
+
+# Headers de Segurança
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Previne clickjacking
+    X-Frame-Options = "DENY"
+    # Previne MIME type sniffing
+    X-Content-Type-Options = "nosniff"
+    # Ativa proteção XSS do navegador
+    X-XSS-Protection = "1; mode=block"
+    # Controla informações do referrer
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # Permissions Policy (antes Feature-Policy)
+    Permissions-Policy = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+    # Content Security Policy
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://bolao-api.leozao.dev; frame-ancestors 'none';"
+
+# Redireciona todas as rotas para index.html (SPA)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
