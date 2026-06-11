@@ -284,7 +284,7 @@ import api from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { getFlagUrl } from '@/utils/countryFlags'
 import { logger } from '@/utils/logger'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -299,6 +299,7 @@ const loadingAllBets = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
 const shareButtonText = ref('Compartilhar')
+let pollingInterval = null
 
 const getUserBetByType = (betTypeId) => userBets.value.find((b) => b.bet_type_id === betTypeId)
 
@@ -326,6 +327,29 @@ watch(
         }
     },
     { deep: true }
+)
+
+// Watch for game status changes (e.g. page was open before game started)
+watch(
+    () => game.value?.status,
+    (newStatus, oldStatus) => {
+        if (!oldStatus || newStatus === oldStatus) return
+        if (newStatus === 'in_progress' || newStatus === 'finished') {
+            loadAllGameBets()
+        }
+        if (newStatus === 'in_progress' && !pollingInterval) {
+            pollingInterval = setInterval(async () => {
+                await loadGame()
+                if (game.value?.status === 'in_progress' || game.value?.status === 'finished') {
+                    loadAllGameBets()
+                }
+                if (game.value?.status === 'finished') {
+                    clearInterval(pollingInterval)
+                    pollingInterval = null
+                }
+            }, 30000)
+        }
+    }
 )
 
 const isTemporarilyUnlocked = computed(() => {
@@ -512,6 +536,27 @@ onMounted(async () => {
         if (game.value.bets_locked || game.value.status === 'in_progress' || game.value.status === 'finished') {
             loadAllGameBets()
         }
+        // Polling: reload game data and bets every 30s while game is live
+        if (game.value.status === 'in_progress') {
+            pollingInterval = setInterval(async () => {
+                await loadGame()
+                if (game.value?.status === 'in_progress' || game.value?.status === 'finished') {
+                    loadAllGameBets()
+                }
+                // Stop polling once the game is finished
+                if (game.value?.status === 'finished') {
+                    clearInterval(pollingInterval)
+                    pollingInterval = null
+                }
+            }, 30000)
+        }
+    }
+})
+
+onUnmounted(() => {
+    if (pollingInterval) {
+        clearInterval(pollingInterval)
+        pollingInterval = null
     }
 })
 </script>

@@ -143,12 +143,13 @@ export class RankingService {
 
     for (const profile of profiles) {
       // Get bet statistics for each user for this competition's games
+      // Include pending bets so users appear in ranking even before points are calculated
       const { data: bets, error: betsError } = await supabase
         .from('bets')
         .select('points_earned, status')
         .eq('user_id', profile.id)
         .in('game_id', gameIds)
-        .in('status', ['correct', 'incorrect']);
+        .in('status', ['correct', 'incorrect', 'pending']);
 
       if (betsError) {
         continue;
@@ -162,8 +163,12 @@ export class RankingService {
         (sum, bet) => sum + (bet.points_earned || 0),
         0,
       );
-      const totalBets = bets.length;
-      const correctBets = bets.filter((bet) => bet.status === 'correct').length;
+      // Only count bets that have been evaluated for stats purposes
+      const evaluatedBets = bets.filter(
+        (bet) => bet.status === 'correct' || bet.status === 'incorrect',
+      );
+      const totalBets = evaluatedBets.length;
+      const correctBets = evaluatedBets.filter((bet) => bet.status === 'correct').length;
       const accuracy = totalBets > 0 ? (correctBets / totalBets) * 100 : 0;
 
       ranking.push({
@@ -237,7 +242,7 @@ export class RankingService {
       `,
       )
       .eq('user_id', userId)
-      .in('status', ['correct', 'incorrect'])
+      .in('status', ['correct', 'incorrect', 'pending'])
       .order('created_at', { ascending: false });
 
     if (betsError) {
