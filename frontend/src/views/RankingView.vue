@@ -659,7 +659,7 @@
                                                 <p
                                                     class="text-sm text-gray-500"
                                                 >
-                                                    {{ formatPrediction(bet) }}
+                                                    {{ formatPrediction(bet, gameData.game) }}
                                                 </p>
                                             </div>
                                         </div>
@@ -820,12 +820,19 @@ const formatDate = (dateString) => {
     return `${day}/${month}/${year}`;
 };
 
-const formatPrediction = (bet) => {
+const formatPrediction = (bet, game) => {
     const prediction = bet.prediction;
     const betType = bet.bet_type?.type;
 
     if (betType === "exact_score") {
         return `Placar: ${prediction.home_score} × ${prediction.away_score}`;
+    } else if (betType === "result") {
+        const map = {
+            home_win: game?.home_team || "Time da casa vence",
+            draw: "Empate",
+            away_win: game?.away_team || "Time visitante vence",
+        };
+        return map[prediction.result] || prediction.result;
     } else if (betType === "first_goal") {
         return `Primeiro gol: ${prediction.player_name || "Jogador"}`;
     } else if (betType === "player_goal") {
