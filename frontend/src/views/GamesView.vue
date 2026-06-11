@@ -48,7 +48,7 @@
         <!-- Lista de Jogos -->
         <div v-else-if="games.length > 0" class="space-y-4">
             <div v-for="game in games" :key="game.id"
-                class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                :class="['rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow', getBetStatusBorder(game)]">
                 <div class="p-6">
                     <div class="flex flex-wrap items-center justify-between mb-4">
                         <div class="flex items-center space-x-3 mb-2 sm:mb-0">
@@ -59,6 +59,11 @@
                             <span v-if="game.is_knockout"
                                 class="px-3 py-1 bg-red-500 text-white rounded-full text-xs font-semibold">
                                 MATA-MATA
+                            </span>
+                            <!-- Badge de status do palpite -->
+                            <span :class="getBetStatusBadge(game).class"
+                                class="px-3 py-1 rounded-full text-xs font-semibold">
+                                {{ getBetStatusBadge(game).text }}
                             </span>
                         </div>
                         <span class="text-sm text-gray-600">{{ game.competition?.name }}</span>
@@ -125,6 +130,7 @@ import { onMounted, ref } from 'vue'
 
 const games = ref([])
 const competitions = ref([])
+const userBets = ref([])
 const loading = ref(false)
 const filters = ref({ status: 'scheduled', competition_id: '', sort: 'date_asc' })
 
@@ -145,6 +151,15 @@ const loadGames = async () => {
     }
 }
 
+const loadUserBets = async () => {
+    try {
+        const response = await api.get('/bets')
+        userBets.value = response.data.data || response.data || []
+    } catch (error) {
+        logger.error('Erro ao carregar palpites do usuário:', error)
+    }
+}
+
 const loadCompetitions = async () => {
     try {
         const response = await api.get('/competitions')
@@ -152,6 +167,44 @@ const loadCompetitions = async () => {
     } catch (error) {
         logger.error('Erro ao carregar competições:', error)
     }
+}
+
+/**
+ * Retorna o status do palpite para um jogo:
+ * - 'bet': já palpitou (verde)
+ * - 'pending': ainda pode palpitar (amarelo)
+ * - 'missed': perdeu o prazo (vermelho)
+ */
+const getBetStatus = (game) => {
+    const hasBet = userBets.value.some(bet => bet.game_id === game.id)
+    if (hasBet) return 'bet'
+
+    // Jogo ainda aceita palpites
+    const isUnlocked = game.bets_unlock_until && new Date(game.bets_unlock_until) > new Date()
+    if ((game.status === 'scheduled' && !game.bets_locked) || isUnlocked) return 'pending'
+
+    // Jogo travado/ao vivo/finalizado sem palpite
+    return 'missed'
+}
+
+const getBetStatusBorder = (game) => {
+    const status = getBetStatus(game)
+    const map = {
+        bet: 'border-l-4 border-l-green-500 bg-green-50/40',
+        pending: 'border-l-4 border-l-yellow-400 bg-yellow-50/40',
+        missed: 'border-l-4 border-l-red-400 bg-red-50/40',
+    }
+    return map[status] || ''
+}
+
+const getBetStatusBadge = (game) => {
+    const status = getBetStatus(game)
+    const map = {
+        bet: { class: 'bg-green-100 text-green-800', text: '✓ Palpite feito' },
+        pending: { class: 'bg-yellow-100 text-yellow-800', text: '⚠ Sem palpite' },
+        missed: { class: 'bg-red-100 text-red-800', text: '✗ Prazo perdido' },
+    }
+    return map[status] || { class: '', text: '' }
 }
 
 const formatDate = (dateString) => {
@@ -183,5 +236,6 @@ const getStatusClass = (status) => {
 onMounted(() => {
     loadGames()
     loadCompetitions()
+    loadUserBets()
 })
 </script>
