@@ -284,7 +284,7 @@ import api from '@/services/api'
 import { useToastStore } from '@/stores/toast'
 import { getFlagUrl } from '@/utils/countryFlags'
 import { logger } from '@/utils/logger'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -300,10 +300,33 @@ const successMessage = ref('')
 const errorMessage = ref('')
 const shareButtonText = ref('Compartilhar')
 
+const getUserBetByType = (betTypeId) => userBets.value.find((b) => b.bet_type_id === betTypeId)
+
+const inferResultFromScore = (homeScore, awayScore) => {
+    if (homeScore > awayScore) return 'home_win'
+    if (awayScore > homeScore) return 'away_win'
+    return 'draw'
+}
+
 const bets = ref({
     exact_score: { home_score: null, away_score: null },
     result: { result: null },
 })
+
+// Auto-infer result when exact score changes
+watch(
+    () => bets.value.exact_score,
+    (score) => {
+        if (score.home_score !== null && score.away_score !== null && score.home_score >= 0 && score.away_score >= 0) {
+            const resultBetType = availableBetTypes.value.find((bt) => bt.type === 'result')
+            const existingResultBet = resultBetType ? getUserBetByType(resultBetType.id) : null
+            if (!existingResultBet) {
+                bets.value.result.result = inferResultFromScore(score.home_score, score.away_score)
+            }
+        }
+    },
+    { deep: true }
+)
 
 const isTemporarilyUnlocked = computed(() => {
     const unlockUntil = game.value?.bets_unlock_until
@@ -365,7 +388,6 @@ const loadAllGameBets = async () => {
     }
 }
 
-const getUserBetByType = (betTypeId) => userBets.value.find((b) => b.bet_type_id === betTypeId)
 const getBetsByType = (betTypeId) => allGameBets.value.filter((b) => b.bet_type_id === betTypeId)
 
 const submitBet = async (betTypeId, betKey) => {
@@ -378,8 +400,33 @@ const submitBet = async (betTypeId, betKey) => {
             prediction: bets.value[betKey],
         })
         successMessage.value = 'Palpite enviado com sucesso!'
-        if (betKey === 'exact_score') bets.value.exact_score = { home_score: null, away_score: null }
-        else if (betKey === 'result') bets.value.result.result = null
+
+        // Auto-infer and submit result bet when exact score is submitted
+        if (betKey === 'exact_score') {
+            const { home_score, away_score } = bets.value.exact_score
+            const resultBetType = availableBetTypes.value.find((bt) => bt.type === 'result')
+            const existingResultBet = resultBetType ? getUserBetByType(resultBetType.id) : null
+
+            if (resultBetType && !existingResultBet) {
+                const inferredResult = inferResultFromScore(home_score, away_score)
+                try {
+                    await api.post('/bets', {
+                        game_id: game.value.id,
+                        bet_type_id: resultBetType.id,
+                        prediction: { result: inferredResult },
+                    })
+                    successMessage.value = 'Palpite de placar e resultado enviados com sucesso!'
+                } catch (resultError) {
+                    // Exact score was saved, but result failed — not critical
+                    logger.error('Erro ao enviar palpite de resultado automático:', resultError)
+                }
+            }
+
+            bets.value.exact_score = { home_score: null, away_score: null }
+        } else if (betKey === 'result') {
+            bets.value.result.result = null
+        }
+
         await loadUserBets()
         setTimeout(() => { successMessage.value = '' }, 3000)
     } catch (error) {
