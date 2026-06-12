@@ -595,12 +595,12 @@
                                 >
                                     <div>
                                         <p class="font-semibold text-gray-800">
-                                            {{ gameData.game.home_team }}
+                                            {{ getTeamName(gameData.game.home_team) }}
                                             {{
                                                 gameData.game.home_score
                                             }}
                                             x {{ gameData.game.away_score }}
-                                            {{ gameData.game.away_team }}
+                                            {{ getTeamName(gameData.game.away_team) }}
                                         </p>
                                         <p class="text-sm text-gray-500">
                                             {{
@@ -705,6 +705,7 @@
 <script setup>
 import api from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
+import { getTeamName } from "@/utils/countryFlags";
 import { computed, onMounted, ref } from "vue";
 
 const authStore = useAuthStore();
@@ -828,9 +829,9 @@ const formatPrediction = (bet, game) => {
         return `Placar: ${prediction.home_score} × ${prediction.away_score}`;
     } else if (betType === "result") {
         const map = {
-            home_win: game?.home_team || "Time da casa vence",
+            home_win: getTeamName(game?.home_team) || "Time da casa vence",
             draw: "Empate",
-            away_win: game?.away_team || "Time visitante vence",
+            away_win: getTeamName(game?.away_team) || "Time visitante vence",
         };
         return map[prediction.result] || prediction.result;
     } else if (betType === "first_goal") {

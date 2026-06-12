@@ -1,11 +1,16 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import * as express from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Limite explícito de payload para prevenir DoS
+  app.use(express.json({ limit: '100kb' }));
+  app.use(express.urlencoded({ limit: '100kb', extended: true }));
 
   // Security headers com configuração restritiva
   app.use(

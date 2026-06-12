@@ -1,7 +1,7 @@
 # Relatório de Auditoria de Segurança - Frontend
 
 **Data:** 14/01/2026  
-**Repositório:** fronteira-alvi-verde-frontend
+**Repositório:** bolao-app-frontend
 
 ---
 

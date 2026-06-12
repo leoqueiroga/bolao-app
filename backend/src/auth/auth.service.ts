@@ -71,7 +71,8 @@ export class AuthService {
     });
 
     if (error) {
-      throw new UnauthorizedException(error.message);
+      // Mensagem genérica para evitar account enumeration
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const authenticatedClient = this.supabaseService.getDatabaseClientWithToken(

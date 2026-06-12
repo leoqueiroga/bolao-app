@@ -23,9 +23,9 @@ bolao-app/
 
 ```env
 VITE_API_URL=https://<seu-dominio-ou-ip>/api
-VITE_SUPABASE_URL=https://<projeto>.supabase.co
+VITE_SUPABASE_URL=https://jrirsdusbcckyyrmfilb.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon-key>
-VITE_APP_NAME="Bolão Fronteira Alvi-Verde"
+VITE_APP_NAME="Bolão App"
 VITE_APP_ENV=production
 ```
 

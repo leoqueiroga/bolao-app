@@ -7,11 +7,19 @@ import {
   HttpStatus,
   Post,
 } from '@nestjs/common';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { LoginDto, RegisterDto } from './dto';
+
+class RefreshTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2048)
+  refresh_token: string;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -48,7 +56,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 refreshes por minuto
-  async refresh(@Body('refresh_token') refreshToken: string) {
-    return this.authService.refreshToken(refreshToken);
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshToken(refreshTokenDto.refresh_token);
   }
 }

@@ -1,5 +1,6 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { UUIDValidationPipe } from '../common/pipes/uuid-validation.pipe';
 import { RankingService } from './ranking.service';
 
 @Controller('ranking')
@@ -17,17 +18,23 @@ export class RankingController {
   }
 
   @Get('user/:userId')
-  async getUserHistoryById(@Param('userId') userId: string) {
+  async getUserHistoryById(
+    @Param('userId', UUIDValidationPipe) userId: string,
+  ) {
     return this.rankingService.getUserHistory(userId);
   }
 
   @Get('user/:userId/bets')
-  async getUserBetsDetails(@Param('userId') userId: string) {
+  async getUserBetsDetails(
+    @Param('userId', UUIDValidationPipe) userId: string,
+  ) {
     return this.rankingService.getUserBetsDetails(userId);
   }
 
   @Get('competition/:competitionId')
-  async getRankingByCompetition(@Param('competitionId') competitionId: string) {
+  async getRankingByCompetition(
+    @Param('competitionId', UUIDValidationPipe) competitionId: string,
+  ) {
     return this.rankingService.getRankingByCompetition(competitionId);
   }
 }

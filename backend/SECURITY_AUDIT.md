@@ -1,133 +1,323 @@
-# Relatório de Auditoria de Segurança
+# 🔐 Audit de Segurança — Bolão App
 
-**Data:** 14/01/2026  
-**Repositórios:** fronteira-alvi-verde-backend, fronteira-alvi-verde-frontend
+**Data:** 03/06/2026  
+**Escopo:** Backend (NestJS) + Frontend (Vue/Vite) + Infraestrutura (Supabase/PM2/Netlify)
 
 ---
 
 ## Resumo Executivo
 
+A aplicação apresenta uma **base de segurança sólida** (Helmet, CORS restritivo, rate limiting, RLS no Supabase, validação de DTOs, exception filter). Porém, existem **vulnerabilidades de média e baixa severidade** que merecem atenção.
+
 | Severidade | Quantidade |
-|------------|------------|
-| 🔴 Crítico | 0 |
-| 🟠 Alto | 3 |
-| 🟡 Médio | 4 |
-| 🟢 Baixo | 2 |
+|-----------|-----------|
+| 🔴 Alta   | 2         |
+| 🟠 Média  | 5         |
+| 🟡 Baixa  | 6         |
 
 ---
 
-## Problemas Encontrados
+## 🔴 Severidade Alta
 
-### 🟠 ALTO - 1. Log de JWT Payload no Console
+### 1. Campo `prediction` sem validação de schema (Injection via JSONB)
 
-**Arquivo:** `backend/src/auth/strategies/supabase.strategy.ts:36`
-
-**Problema:** O payload JWT está sendo logado no console, o que pode expor informações sensíveis em produção.
+**Arquivo:** `src/bets/dto/bet.dto.ts`  
+**Problema:** O campo `prediction` é tipado como `any` sem nenhuma validação de estrutura:
 
 ```typescript
-console.log('JWT Payload received:', JSON.stringify(payload, null, 2));
+@IsNotEmpty()
+prediction: any; // PERIGO: aceita qualquer JSON
 ```
 
-**Correção:** Remover ou usar logger condicional.
+**Risco:** Um atacante pode enviar payloads JSON enormes (DoS), com nested objects profundos, ou dados inesperados que podem causar erros na avaliação de apostas. Apesar do Supabase sanitizar SQL injection em JSONB, o fato de aceitar qualquer estrutura é perigoso.
+
+**Correção:**
+```typescript
+import { IsObject, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+class ExactScorePrediction {
+  @IsNumber()
+  @Min(0)
+  @Max(99)
+  home_score: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(99)
+  away_score: number;
+}
+
+class ResultPrediction {
+  @IsEnum(['home_win', 'draw', 'away_win'])
+  result: string;
+}
+
+// Alternativa mínima: validar tamanho e profundidade
+@IsObject()
+@MaxDepth(2) // custom validator
+prediction: ExactScorePrediction | ResultPrediction;
+```
 
 ---
 
-### 🟠 ALTO - 2. Falta de Rate Limiting
+### 2. Execução como `root` em produção
 
-**Problema:** Não há proteção contra ataques de força bruta nos endpoints de login/registro.
+**Arquivo:** `ecosystem.config.js`  
+**Problema:** `cwd: '/root/bolao-app/backend'` — o processo PM2 roda como root.
 
-**Correção:** Instalar e configurar `@nestjs/throttler`.
+**Risco:** Se houver qualquer RCE (Remote Code Execution), o atacante terá acesso total ao servidor.
 
----
+**Correção:**
+```bash
+# Criar usuário dedicado
+sudo useradd -m -s /bin/bash bolao-app
+sudo chown -R bolao-app:bolao-app /home/bolao-app/bolao-app
 
-### 🟠 ALTO - 3. Falta de Headers de Segurança (Helmet)
-
-**Problema:** O backend não implementa headers HTTP de segurança.
-
-**Correção:** Instalar e configurar `helmet`.
-
----
-
-### 🟡 MÉDIO - 4. Senha Mínima de 6 Caracteres
-
-**Arquivo:** `backend/src/auth/dto/register.dto.ts`
-
-**Problema:** A senha mínima de 6 caracteres é considerada fraca.
-
-**Correção:** Aumentar para 8+ caracteres e adicionar validação de complexidade.
-
----
-
-### 🟡 MÉDIO - 5. CORS Muito Permissivo
-
-**Arquivo:** `backend/src/main.ts`
-
-**Problema:** CORS aceita origem de variável de ambiente sem validação.
-
-**Correção:** Validar e sanitizar a origem permitida.
+# Atualizar ecosystem.config.js
+module.exports = {
+  apps: [{
+    name: 'bolao-backend',
+    script: 'dist/main.js',
+    cwd: '/home/bolao-app/bolao-app/backend',
+    user: 'bolao-app', // ← rodar como usuário sem privilégios
+    // ...
+  }]
+}
+```
 
 ---
 
-### 🟡 MÉDIO - 6. Logs de Erro Podem Expor Informações
+## 🟠 Severidade Média
 
-**Arquivos:** Vários arquivos com `console.error`
+### 3. IDs de entidade sem validação UUID em `CreateBetDto`
 
-**Problema:** Erros detalhados podem expor estrutura interna em produção.
+**Arquivo:** `src/bets/dto/bet.dto.ts`  
+**Problema:**
 
-**Correção:** Usar logger estruturado com níveis por ambiente.
+```typescript
+@IsString()  // deveria ser @IsUUID()
+@IsNotEmpty()
+game_id: string;
 
----
+@IsString()  // deveria ser @IsUUID()
+@IsNotEmpty()
+bet_type_id: string;
+```
 
-### 🟡 MÉDIO - 7. Falta Validação de Força de Senha
+**Risco:** Permite envio de strings arbitrárias que serão usadas em queries ao Supabase. Embora o Supabase use queries parametrizadas, isso pode causar erros inesperados ou bypass de lógica.
 
-**Problema:** Não há validação de complexidade de senha (letras, números, símbolos).
+**Correção:**
+```typescript
+@IsUUID()
+@IsNotEmpty()
+game_id: string;
 
-**Correção:** Adicionar regex de validação ou usar biblioteca como `zxcvbn`.
-
----
-
-### 🟢 BAIXO - 8. Arquivo Dist no Backend Local
-
-**Problema:** A pasta `dist/` existe localmente (não está no git).
-
-**Correção:** Já está no .gitignore ✅
-
----
-
-### 🟢 BAIXO - 9. Arquivos .env de Exemplo
-
-**Status:** ✅ OK - Apenas exemplos estão no repositório, sem credenciais reais.
-
----
-
-## Pontos Positivos ✅
-
-1. **Credenciais via variáveis de ambiente** - Não há secrets hardcoded
-2. **Arquivos .env não commitados** - .gitignore configurado corretamente
-3. **Autenticação via Supabase** - Tokens validados corretamente
-4. **Role-based access control** - Guards funcionando
-5. **Sem uso de localStorage para tokens** - Supabase gerencia isso
-6. **Sem v-html/innerHTML** - Sem risco de XSS por HTML injetado
-7. **ValidationPipe com whitelist e forbidNonWhitelisted** - Proteção contra mass assignment
-8. **Queries parametrizadas** - Supabase client usa queries seguras
+@IsUUID()
+@IsNotEmpty()
+bet_type_id: string;
+```
 
 ---
 
-## Recomendações de Correção
+### 4. Endpoint expõe apostas de todos os usuários sem controle de acesso
 
-### Prioridade Alta
+**Arquivo:** `src/bets/bets.controller.ts`  
+**Problema:** O endpoint `GET /bets/game/:gameId/all` retorna apostas de TODOS os usuários sem restrição de role:
 
-1. Remover console.log do JWT payload
-2. Implementar rate limiting
-3. Adicionar helmet para headers de segurança
+```typescript
+@Get('game/:gameId/all')
+async findAllByGame(@Param('gameId', UUIDValidationPipe) gameId: string) {
+  return this.betsService.findAllByGame(gameId);
+}
+```
 
-### Prioridade Média
+**Risco:** Qualquer usuário autenticado pode ver as apostas de todos os outros, incluindo nome e avatar. Em um bolão, isso pode influenciar decisões de aposta.
 
-4. Aumentar requisitos de senha
-5. Implementar logging estruturado
-6. Adicionar validação de origem CORS em produção
+**Correção:** Restringir a admin ou só mostrar após o jogo começar:
+```typescript
+@Get('game/:gameId/all')
+async findAllByGame(
+  @Param('gameId', UUIDValidationPipe) gameId: string,
+  @CurrentUser() user: any,
+) {
+  return this.betsService.findAllByGame(gameId, user); // verificar se jogo já começou
+}
+```
 
-### Prioridade Baixa
+---
 
-7. Documentar política de segurança
-8. Implementar auditoria de ações administrativas
+### 5. Ranking controller sem validação de UUID nos parâmetros
+
+**Arquivo:** `src/ranking/ranking.controller.ts`  
+**Problema:** Parâmetros `userId` e `competitionId` não usam `UUIDValidationPipe`:
+
+```typescript
+@Get('user/:userId')
+async getUserHistoryById(@Param('userId') userId: string) { ... }
+
+@Get('user/:userId/bets')
+async getUserBetsDetails(@Param('userId') userId: string) { ... }
+
+@Get('competition/:competitionId')
+async getRankingByCompetition(@Param('competitionId') competitionId: string) { ... }
+```
+
+**Correção:** Adicionar `UUIDValidationPipe` a todos os `@Param()`.
+
+---
+
+### 6. CSP do frontend permite `'unsafe-inline'` e `'unsafe-eval'` para scripts
+
+**Arquivo:** `frontend/netlify.toml`  
+```
+script-src 'self' 'unsafe-inline' 'unsafe-eval';
+```
+
+**Risco:** Anula a proteção de CSP contra XSS. Um atacante que consiga injetar HTML pode executar JavaScript arbitrário.
+
+**Correção:** Usar nonces ou hashes em vez de `'unsafe-inline'`. Se a framework exigir inline, pelo menos remover `'unsafe-eval'`:
+```
+script-src 'self' 'unsafe-inline';
+```
+
+---
+
+### 7. Parâmetros de query não validados no Games Controller
+
+**Arquivo:** `src/games/games.controller.ts`  
+**Problema:** Os query params `competition_id` e `status` são passados diretamente sem validação:
+
+```typescript
+@Get()
+async findAll(
+  @Query('competition_id') competitionId?: string,
+  @Query('status') status?: string,
+) { ... }
+```
+
+**Risco:** Valores inesperados para `status` podem causar queries ineficientes ou erros.
+
+**Correção:** Criar um DTO com validação:
+```typescript
+class FindGamesQueryDto {
+  @IsUUID()
+  @IsOptional()
+  competition_id?: string;
+
+  @IsEnum(['scheduled', 'in_progress', 'finished', 'postponed', 'cancelled'])
+  @IsOptional()
+  status?: string;
+}
+```
+
+---
+
+## 🟡 Severidade Baixa
+
+### 8. CORS bloqueia requests sem `Origin` em produção
+
+**Arquivo:** `src/main.ts`  
+**Observação:** ~~Requests de ferramentas CLI, healthchecks internos, ou server-to-server serão bloqueados em produção.~~ Este comportamento é **intencional e correto** — bloquear requests sem `Origin` em produção é uma defesa legítima contra CSRF e automação não autorizada. Garantir apenas que healthchecks internos (como do PM2 ou load balancer) usem um mecanismo alternativo (endpoint interno sem passar pelo CORS, ou fazer chamada com header `Origin` explícito).
+
+---
+
+### 9. Deploy script sem verificação de integridade
+
+**Arquivo:** `deploy.sh`  
+**Problema:** Não há verificação de testes antes do deploy, nem rollback automático.
+
+**Sugestão:**
+```bash
+echo "==> Rodando testes..."
+npm test || { echo "FALHA NOS TESTES - deploy cancelado"; exit 1; }
+```
+
+---
+
+### 10. Logs com dados sensíveis em desenvolvimento
+
+**Arquivo:** `src/common/filters/http-exception.filter.ts`  
+**Problema:** ~~Em desenvolvimento, o erro completo é logado com `console.error('Exception:', { error: exception })`. Se o request body contiver senha, ela pode aparecer nos logs.~~ **Análise corrigida:** o filtro loga `exception` (o objeto de erro), não o `request.body`. O body com senha não está exposto. O risco real e menor é que stacktraces com contextos de erro do Supabase ocasionalmente incluem dados do input nos ambientes de dev. Baixíssimo impacto real.
+
+**Sugestão (opcional):** Sanitizar campos sensíveis do objeto exception antes de logar, por cautela.
+
+---
+
+### 11. Sem limite de tamanho de payload (body-parser)
+
+**Problema:** O NestJS/Express usa o default de 100kb para JSON body, o que é razoável. Porém, não há limite explícito configurado — se o default mudar ou se alguém adicionar `multer`, pode abrir DoS.
+
+**Sugestão:** Configurar explicitamente em `main.ts`:
+```typescript
+app.use(express.json({ limit: '100kb' }));
+```
+
+---
+
+### 12. Token de refresh sem validação de formato
+
+**Arquivo:** `src/auth/auth.controller.ts`  
+**Problema:** O `refresh_token` é extraído do body sem nenhuma validação:
+
+```typescript
+@Post('refresh')
+async refresh(@Body('refresh_token') refreshToken: string) { ... }
+```
+
+**Sugestão:** Criar um DTO com validação:
+```typescript
+class RefreshTokenDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000) // tokens não devem ser gigantescos
+  refresh_token: string;
+}
+```
+
+---
+
+### 13. Sem proteção contra account enumeration
+
+**Arquivo:** `src/auth/auth.service.ts`  
+**Observação:** As mensagens de erro do Supabase no login podem diferenciar "user not found" vs "wrong password". O exception filter em produção retorna apenas "Unauthorized", o que é bom. Verificar se o Supabase não retorna mensagens distintas.
+
+---
+
+## ✅ Pontos Positivos
+
+| Aspecto | Implementação |
+|---------|--------------|
+| Rate Limiting | ✅ Global (100/min) + específico em auth (5 registro, 10 login) |
+| Helmet | ✅ HSTS, noSniff, CSP, referrerPolicy |
+| CORS | ✅ Restritivo com whitelist de origins |
+| Validação de Input | ✅ Global ValidationPipe com whitelist + forbidNonWhitelisted |
+| Sanitização de Erros | ✅ Exception filter esconde detalhes em produção |
+| RLS (Row Level Security) | ✅ Habilitado em todas as tabelas com policies adequadas |
+| Autenticação | ✅ JWT com Supabase, guard global, verificação de user no banco |
+| Autorização | ✅ Role-based access control para operações admin |
+| UUID Validation | ✅ Pipe custom para parâmetros de rota (parcial — faltam alguns) |
+| Validação de Env | ✅ Falha no startup se variáveis obrigatórias não existem |
+| Secrets no Git | ✅ .env no .gitignore |
+| Soft Delete | ✅ Games usa `deleted_at` em vez de delete real |
+| Senha | ✅ Min 8 chars, maiúscula + minúscula + número |
+| Race Condition | ✅ Flags `isRunning` no scheduler previnem execuções paralelas |
+
+---
+
+## 📋 Plano de Ação Prioritário
+
+| # | Ação | Esforço | Impacto |
+|---|------|---------|---------|
+| 1 | Validar schema de `prediction` nos DTOs | Médio | Alto |
+| 2 | Mover app para usuário sem privilégios | Baixo | Alto |
+| 3 | Adicionar `@IsUUID()` em `CreateBetDto` | Baixo | Médio |
+| 4 | Restringir endpoint `/bets/game/:id/all` | Baixo | Médio |
+| 5 | Adicionar UUID validation no ranking controller | Baixo | Médio |
+| 6 | Remover `unsafe-eval` do CSP | Baixo | Médio |
+| 7 | Validar query params do games controller | Baixo | Baixo |
+| 8 | Criar DTO para refresh token | Baixo | Baixo |
+
+---
+
+*Audit realizado via análise estática de código. Recomenda-se complementar com testes de penetração e dependency audit (`npm audit`).*

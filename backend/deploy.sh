@@ -13,6 +13,12 @@ npm ci
 echo "==> Compilando..."
 npm run build
 
+echo "==> Verificando build..."
+if [ ! -f "dist/main.js" ]; then
+  echo "FALHA NO BUILD - dist/main.js não encontrado. Deploy cancelado."
+  exit 1
+fi
+
 echo "==> Removendo devDependencies após build..."
 npm prune --omit=dev
 

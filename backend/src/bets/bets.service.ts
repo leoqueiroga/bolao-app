@@ -42,8 +42,19 @@ export class BetsService {
     return data || [];
   }
 
-  async findAllByGame(gameId: string): Promise<Bet[]> {
+  async findAllByGame(gameId: string, user?: any): Promise<Bet[]> {
     const supabase = this.supabaseService.getAdminClient();
+
+    // Verificar se o usuário é admin ou se o jogo já começou
+    const game = await this.gamesService.findOne(gameId);
+    const isAdmin = user?.role === 'admin';
+    const gameHasStarted = game.status !== 'scheduled';
+
+    if (!isAdmin && !gameHasStarted) {
+      throw new ForbiddenException(
+        'Apostas só ficam visíveis após o início do jogo',
+      );
+    }
 
     const { data, error } = await supabase
       .from('bets')

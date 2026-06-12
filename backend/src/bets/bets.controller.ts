@@ -33,8 +33,11 @@ export class BetsController {
   }
 
   @Get('game/:gameId/all')
-  async findAllByGame(@Param('gameId', UUIDValidationPipe) gameId: string) {
-    return this.betsService.findAllByGame(gameId);
+  async findAllByGame(
+    @Param('gameId', UUIDValidationPipe) gameId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.betsService.findAllByGame(gameId, user);
   }
 
   @Get(':id')
