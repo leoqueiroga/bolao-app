@@ -143,7 +143,7 @@
                     <div class="mb-4">
                         <div class="flex items-center justify-between mb-2">
                             <h3 class="text-lg font-semibold text-gray-800">
-                                {{ bet.game?.home_team }} vs {{ bet.game?.away_team }}
+                                {{ getTeamName(bet.game?.home_team) }} vs {{ getTeamName(bet.game?.away_team) }}
                             </h3>
                             <span class="text-sm text-gray-600">{{
                                 bet.game?.competition?.name
@@ -269,6 +269,7 @@
 <script setup>
 import api from "@/services/api";
 import { useToastStore } from "@/stores/toast";
+import { getTeamName } from "@/utils/countryFlags";
 import { logger } from "@/utils/logger";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";

@@ -79,7 +79,7 @@
                             <div v-else class="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
                                 <span class="text-lg font-bold text-gray-500">{{ game.home_team?.charAt(0) }}</span>
                             </div>
-                            <p class="font-bold text-gray-800">{{ game.home_team }}</p>
+                            <p class="font-bold text-gray-800">{{ getTeamName(game.home_team) }}</p>
                         </div>
 
                         <div class="px-4 text-center">
@@ -99,7 +99,7 @@
                             <div v-else class="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
                                 <span class="text-lg font-bold text-gray-500">{{ game.away_team?.charAt(0) }}</span>
                             </div>
-                            <p class="font-bold text-gray-800">{{ game.away_team }}</p>
+                            <p class="font-bold text-gray-800">{{ getTeamName(game.away_team) }}</p>
                         </div>
                     </div>
 
@@ -124,7 +124,7 @@
 
 <script setup>
 import api from '@/services/api'
-import { getFlagUrl } from '@/utils/countryFlags'
+import { getFlagUrl, getTeamName } from '@/utils/countryFlags'
 import { logger } from '@/utils/logger'
 import { onMounted, ref } from 'vue'
 

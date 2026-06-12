@@ -80,8 +80,19 @@ export class RankingService {
       });
     }
 
-    // Sort by total points descending
-    ranking.sort((a, b) => b.total_points - a.total_points);
+    // Sort by total points descending, with tiebreakers:
+    // 1. total_points (desc)
+    // 2. correct_bets (desc)
+    // 3. accuracy (desc)
+    // 4. current_streak (desc)
+    // 5. name (asc, alphabetical)
+    ranking.sort((a, b) => {
+      if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+      if (b.correct_bets !== a.correct_bets) return b.correct_bets - a.correct_bets;
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+      if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
+      return a.name.localeCompare(b.name);
+    });
 
     // Assign positions
     ranking.forEach((entry, index) => {
@@ -180,8 +191,19 @@ export class RankingService {
       });
     }
 
-    // Sort by total points descending
-    ranking.sort((a, b) => b.total_points - a.total_points);
+    // Sort by total points descending, with tiebreakers:
+    // 1. total_points (desc)
+    // 2. correct_bets (desc)
+    // 3. accuracy (desc)
+    // 4. current_streak (desc)
+    // 5. name (asc, alphabetical)
+    ranking.sort((a, b) => {
+      if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+      if (b.correct_bets !== a.correct_bets) return b.correct_bets - a.correct_bets;
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+      if (b.current_streak !== a.current_streak) return b.current_streak - a.current_streak;
+      return a.name.localeCompare(b.name);
+    });
 
     // Assign positions
     ranking.forEach((entry, index) => {

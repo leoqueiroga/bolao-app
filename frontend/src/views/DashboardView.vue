@@ -66,7 +66,7 @@
             :to="`/games/${game.id}`"
             class="block border-l-4 border-copa-blue-500 pl-4 py-2 hover:bg-gray-50 transition-colors"
           >
-            <p class="font-semibold">{{ game.home_team }} vs {{ game.away_team }}</p>
+            <p class="font-semibold">{{ getTeamName(game.home_team) }} vs {{ getTeamName(game.away_team) }}</p>
             <p class="text-sm text-gray-600">{{ formatDate(game.match_date) }}</p>
             <p class="text-sm text-gray-600">{{ game.competition?.name }}</p>
           </RouterLink>
@@ -83,7 +83,7 @@
             class="flex justify-between items-center py-2 border-b"
           >
             <div>
-              <p class="font-semibold">{{ bet.game?.home_team }} vs {{ bet.game?.away_team }}</p>
+              <p class="font-semibold">{{ getTeamName(bet.game?.home_team) }} vs {{ getTeamName(bet.game?.away_team) }}</p>
               <p class="text-sm text-gray-600">{{ bet.bet_type?.name }}</p>
             </div>
             <div class="text-right">
@@ -111,6 +111,7 @@
 
 <script setup>
 import api from '@/services/api'
+import { getTeamName } from '@/utils/countryFlags'
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
