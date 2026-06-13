@@ -26,6 +26,8 @@ export interface Game {
   bets_locked: boolean;
   bets_unlock_until: string | null;
   points_calculated: boolean;
+  external_match_id: number | null;
+  is_monitoring: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

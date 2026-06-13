@@ -38,6 +38,14 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   PORT?: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'FOOTBALL_DATA_API_KEY é obrigatória' })
+  FOOTBALL_DATA_API_KEY: string;
+
+  @IsString()
+  @IsOptional()
+  FOOTBALL_DATA_COMPETITION?: string = 'WC';
 }
 
 export function validate(config: Record<string, unknown>) {
