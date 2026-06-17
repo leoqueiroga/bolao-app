@@ -4,10 +4,6 @@ module.exports = {
       name: 'bolao-backend',
       script: 'dist/main.js',
       cwd: '/home/bolao-app/bolao-app/backend',
-      // Rodar como usuário sem privilégios. Criar com:
-      //   sudo useradd -m -s /bin/bash bolao-app
-      //   sudo chown -R bolao-app:bolao-app /home/bolao-app/bolao-app
-      user: 'bolao-app',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
