@@ -72,8 +72,28 @@ export class CompetitionSyncService {
 
     const games = (localGames || []) as Game[];
 
+    // Log para diagnóstico de matching
+    if (apiMatches.length > 0 && games.length > 0) {
+      const sampleApi = apiMatches.filter(m => m.homeTeam?.name).slice(0, 3);
+      const sampleLocal = games.slice(0, 3);
+      this.logger.log(
+        `🔍 Amostra API: ${sampleApi.map(m => `${m.homeTeam.name} vs ${m.awayTeam.name} (${m.utcDate})`).join(' | ')}`,
+      );
+      this.logger.log(
+        `🔍 Amostra Local: ${sampleLocal.map(g => `${g.home_team} vs ${g.away_team} (${g.match_date})`).join(' | ')}`,
+      );
+    }
+
     // Mapear partidas da API com registros locais
     for (const apiMatch of apiMatches) {
+      const apiHomeTeam = apiMatch.homeTeam?.name;
+      const apiAwayTeam = apiMatch.awayTeam?.name;
+
+      if (!apiHomeTeam || !apiAwayTeam) {
+        result.unmapped++;
+        continue;
+      }
+
       const matchedGame = this.findMatchingGame(apiMatch, games);
 
       if (matchedGame) {
