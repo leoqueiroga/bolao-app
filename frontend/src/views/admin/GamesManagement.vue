@@ -3,6 +3,11 @@
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
             <h1 class="text-2xl sm:text-3xl font-bold text-copa-blue-500">Gerenciar Jogos</h1>
             <div class="flex space-x-3">
+                <button @click="syncExternalIds" :disabled="syncing"
+                    class="px-3 sm:px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors text-sm sm:text-base disabled:opacity-50"
+                    title="Sincronizar IDs externos (football-data.org)">
+                    {{ syncing ? '⏳' : '🔗' }} Sync API
+                </button>
                 <button @click="loadGames"
                     class="px-3 sm:px-4 py-2 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors text-sm sm:text-base">
                     🔄
@@ -275,6 +280,7 @@ const saveError = ref(null)
 const errorMessage = ref(null)
 const recalculatingGameId = ref(null)
 const unlockingGameId = ref(null)
+const syncing = ref(false)
 const filters = ref({ status: '', competition_id: '' })
 
 const emptyForm = () => ({
@@ -410,6 +416,21 @@ const temporaryUnlock = async (game) => {
         toast.error('Erro ao liberar palpites')
     } finally {
         unlockingGameId.value = null
+    }
+}
+
+const syncExternalIds = async () => {
+    syncing.value = true
+    try {
+        const response = await api.post('/games/sync-external-ids')
+        const { mapped, unmapped } = response.data
+        toast.success?.(`Sincronização concluída: ${mapped} vinculados, ${unmapped} não encontrados`)
+        await loadGames()
+    } catch (error) {
+        logger.error('Erro ao sincronizar IDs externos:', error)
+        toast.error('Erro ao sincronizar com a API football-data.org')
+    } finally {
+        syncing.value = false
     }
 }
 
