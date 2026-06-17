@@ -129,7 +129,8 @@ export class CompetitionSyncService {
 
   /**
    * Encontra um jogo local que corresponde a uma partida da API.
-   * Matching: home_team + away_team (case-insensitive) + match_date (±24h).
+   * Matching: match_date (±24h) + nomes de times (substring match, case-insensitive).
+   * Aceita home/away invertidos entre API e banco.
    */
   private findMatchingGame(
     apiMatch: MatchResponse,
@@ -145,27 +146,69 @@ export class CompetitionSyncService {
     }
 
     const apiDate = new Date(apiDateStr);
+    const twentyFourHoursMs = 24 * 60 * 60 * 1000;
 
     return localGames.find((game) => {
       if (!game.home_team || !game.away_team || !game.match_date) {
         return false;
       }
 
-      const localHomeTeam = game.home_team.toLowerCase();
-      const localAwayTeam = game.away_team.toLowerCase();
       const localDate = new Date(game.match_date);
+      const timeDiffMs = Math.abs(apiDate.getTime() - localDate.getTime());
 
-      const teamsMatch =
-        localHomeTeam === apiHomeTeam && localAwayTeam === apiAwayTeam;
-
-      if (!teamsMatch) {
+      // Filter by date first (±24h)
+      if (timeDiffMs > twentyFourHoursMs) {
         return false;
       }
 
-      const timeDiffMs = Math.abs(apiDate.getTime() - localDate.getTime());
-      const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+      const localHomeTeam = game.home_team.toLowerCase();
+      const localAwayTeam = game.away_team.toLowerCase();
 
-      return timeDiffMs <= twentyFourHoursMs;
+      // Try normal order: API home = local home, API away = local away
+      const normalMatch =
+        this.teamNameMatches(apiHomeTeam, localHomeTeam) &&
+        this.teamNameMatches(apiAwayTeam, localAwayTeam);
+
+      // Try inverted order: API home = local away, API away = local home
+      const invertedMatch =
+        this.teamNameMatches(apiHomeTeam, localAwayTeam) &&
+        this.teamNameMatches(apiAwayTeam, localHomeTeam);
+
+      return normalMatch || invertedMatch;
     });
+  }
+
+  /**
+   * Verifica se dois nomes de times correspondem.
+   * Usa matching por substring e palavras-chave significativas para lidar
+   * com diferenças de nomenclatura (ex: "South Korea" vs "Korea Republic").
+   */
+  private teamNameMatches(apiName: string, localName: string): boolean {
+    // Exact match
+    if (apiName === localName) return true;
+
+    // One contains the other
+    if (apiName.includes(localName) || localName.includes(apiName)) return true;
+
+    // Extract significant words (>2 chars) and check overlap
+    const apiWords = this.getSignificantWords(apiName);
+    const localWords = this.getSignificantWords(localName);
+
+    // At least one significant word must match
+    const matchingWords = apiWords.filter((w) => localWords.includes(w));
+    if (matchingWords.length > 0) return true;
+
+    return false;
+  }
+
+  /**
+   * Extrai palavras significativas (>2 caracteres) de um nome de time,
+   * removendo palavras comuns como "republic", "of", "the", "and".
+   */
+  private getSignificantWords(name: string): string[] {
+    const stopWords = ['republic', 'of', 'the', 'and', 'de', 'da', 'do'];
+    return name
+      .split(/[\s\-]+/)
+      .filter((w) => w.length > 2 && !stopWords.includes(w));
   }
 }
