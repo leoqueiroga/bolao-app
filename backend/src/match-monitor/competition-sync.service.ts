@@ -115,11 +115,22 @@ export class CompetitionSyncService {
     apiMatch: MatchResponse,
     localGames: Game[],
   ): Game | undefined {
-    const apiHomeTeam = apiMatch.homeTeam.name.toLowerCase();
-    const apiAwayTeam = apiMatch.awayTeam.name.toLowerCase();
-    const apiDate = new Date(apiMatch.utcDate);
+    const apiHomeTeam = apiMatch.homeTeam?.name?.toLowerCase();
+    const apiAwayTeam = apiMatch.awayTeam?.name?.toLowerCase();
+    const apiDateStr = apiMatch.utcDate;
+
+    // Skip API matches without team names or date
+    if (!apiHomeTeam || !apiAwayTeam || !apiDateStr) {
+      return undefined;
+    }
+
+    const apiDate = new Date(apiDateStr);
 
     return localGames.find((game) => {
+      if (!game.home_team || !game.away_team || !game.match_date) {
+        return false;
+      }
+
       const localHomeTeam = game.home_team.toLowerCase();
       const localAwayTeam = game.away_team.toLowerCase();
       const localDate = new Date(game.match_date);
