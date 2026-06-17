@@ -128,19 +128,44 @@ export class CompetitionSyncService {
   }
 
   /**
+   * Mapa de aliases para normalização de nomes de times.
+   * Mapeia nomes conhecidos da API para nomes comuns no banco local.
+   */
+  private readonly teamAliases: Record<string, string[]> = {
+    'south korea': ['korea republic', 'korea', 'coreia do sul'],
+    'korea republic': ['south korea', 'korea', 'coreia do sul'],
+    'united states': ['usa', 'eua', 'estados unidos'],
+    'usa': ['united states', 'eua', 'estados unidos'],
+    'bosnia-herzegovina': ['bosnia and herzegovina', 'bosnia', 'bósnia'],
+    'bosnia and herzegovina': ['bosnia-herzegovina', 'bosnia', 'bósnia'],
+    'bosnia-h.': ['bosnia and herzegovina', 'bosnia-herzegovina', 'bosnia'],
+    'turkey': ['türkiye', 'turkiye', 'turquia'],
+    'türkiye': ['turkey', 'turkiye', 'turquia'],
+    'ivory coast': ["côte d'ivoire", 'cote divoire', 'costa do marfim'],
+    "côte d'ivoire": ['ivory coast', 'cote divoire', 'costa do marfim'],
+    'cape verde islands': ['cabo verde', 'cape verde'],
+    'cape verde': ['cabo verde', 'cape verde islands'],
+    'cabo verde': ['cape verde', 'cape verde islands'],
+    'iran': ['ir iran', 'irã'],
+    'ir iran': ['iran', 'irã'],
+    'congo dr': ['dr congo', 'rd congo', 'congo'],
+  };
+
+  /**
    * Encontra um jogo local que corresponde a uma partida da API.
-   * Matching: match_date (±24h) + nomes de times (substring match, case-insensitive).
+   * Usa: shortName > name da API, compara com aliases e matching fuzzy.
    * Aceita home/away invertidos entre API e banco.
+   * Filtra por data ±24h.
    */
   private findMatchingGame(
     apiMatch: MatchResponse,
     localGames: Game[],
   ): Game | undefined {
-    const apiHomeTeam = apiMatch.homeTeam?.name?.toLowerCase();
-    const apiAwayTeam = apiMatch.awayTeam?.name?.toLowerCase();
+    // Prefer shortName (closer to common names), fallback to name
+    const apiHomeTeam = (apiMatch.homeTeam?.shortName || apiMatch.homeTeam?.name)?.toLowerCase();
+    const apiAwayTeam = (apiMatch.awayTeam?.shortName || apiMatch.awayTeam?.name)?.toLowerCase();
     const apiDateStr = apiMatch.utcDate;
 
-    // Skip API matches without team names or date
     if (!apiHomeTeam || !apiAwayTeam || !apiDateStr) {
       return undefined;
     }
@@ -156,7 +181,6 @@ export class CompetitionSyncService {
       const localDate = new Date(game.match_date);
       const timeDiffMs = Math.abs(apiDate.getTime() - localDate.getTime());
 
-      // Filter by date first (±24h)
       if (timeDiffMs > twentyFourHoursMs) {
         return false;
       }
@@ -164,12 +188,12 @@ export class CompetitionSyncService {
       const localHomeTeam = game.home_team.toLowerCase();
       const localAwayTeam = game.away_team.toLowerCase();
 
-      // Try normal order: API home = local home, API away = local away
+      // Try normal order
       const normalMatch =
         this.teamNameMatches(apiHomeTeam, localHomeTeam) &&
         this.teamNameMatches(apiAwayTeam, localAwayTeam);
 
-      // Try inverted order: API home = local away, API away = local home
+      // Try inverted order
       const invertedMatch =
         this.teamNameMatches(apiHomeTeam, localAwayTeam) &&
         this.teamNameMatches(apiAwayTeam, localHomeTeam);
@@ -179,22 +203,26 @@ export class CompetitionSyncService {
   }
 
   /**
-   * Verifica se dois nomes de times correspondem.
-   * Usa matching por substring e palavras-chave significativas para lidar
-   * com diferenças de nomenclatura (ex: "South Korea" vs "Korea Republic").
+   * Verifica se dois nomes de times correspondem usando:
+   * 1. Igualdade exata
+   * 2. Substring (um contém o outro)
+   * 3. Mapa de aliases
+   * 4. Palavras significativas em comum
    */
   private teamNameMatches(apiName: string, localName: string): boolean {
-    // Exact match
     if (apiName === localName) return true;
-
-    // One contains the other
     if (apiName.includes(localName) || localName.includes(apiName)) return true;
 
-    // Extract significant words (>2 chars) and check overlap
+    // Check aliases
+    const apiAliases = this.teamAliases[apiName] || [];
+    if (apiAliases.includes(localName)) return true;
+
+    const localAliases = this.teamAliases[localName] || [];
+    if (localAliases.includes(apiName)) return true;
+
+    // Check significant word overlap
     const apiWords = this.getSignificantWords(apiName);
     const localWords = this.getSignificantWords(localName);
-
-    // At least one significant word must match
     const matchingWords = apiWords.filter((w) => localWords.includes(w));
     if (matchingWords.length > 0) return true;
 
@@ -203,12 +231,12 @@ export class CompetitionSyncService {
 
   /**
    * Extrai palavras significativas (>2 caracteres) de um nome de time,
-   * removendo palavras comuns como "republic", "of", "the", "and".
+   * removendo stop words.
    */
   private getSignificantWords(name: string): string[] {
-    const stopWords = ['republic', 'of', 'the', 'and', 'de', 'da', 'do'];
+    const stopWords = ['republic', 'of', 'the', 'and', 'de', 'da', 'do', 'islands'];
     return name
-      .split(/[\s\-]+/)
+      .split(/[\s-]+/)
       .filter((w) => w.length > 2 && !stopWords.includes(w));
   }
 }
