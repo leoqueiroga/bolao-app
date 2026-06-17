@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'bolao-backend',
       script: 'dist/main.js',
-      cwd: '/home/bolao-app/bolao-app/backend',
+      cwd: '/root/bolao-app/backend',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
