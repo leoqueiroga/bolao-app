@@ -1,6 +1,16 @@
 <template>
     <div class="container mx-auto px-4 py-6">
-        <h1 class="text-3xl font-bold text-copa-blue-500 mb-8">Jogos da Copa</h1>
+        <div class="flex flex-wrap items-center justify-between mb-8">
+            <h1 class="text-3xl font-bold text-copa-blue-500">Jogos da Copa</h1>
+            <button @click="shareTodayGames"
+                class="flex items-center space-x-2 px-4 py-2 bg-copa-blue-500 text-white rounded-lg hover:bg-copa-blue-600 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                <span>{{ shareButtonText }}</span>
+            </button>
+        </div>
 
         <!-- Filtros -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -133,6 +143,7 @@ const competitions = ref([])
 const userBets = ref([])
 const loading = ref(false)
 const filters = ref({ status: 'scheduled', competition_id: '', sort: 'date_asc' })
+const shareButtonText = ref('Jogos do Dia')
 
 const loadGames = async () => {
     loading.value = true
@@ -231,6 +242,51 @@ const getStatusClass = (status) => {
         cancelled: 'bg-red-100 text-red-800',
     }
     return map[status] || 'bg-gray-100 text-gray-800'
+}
+
+const shareTodayGames = async () => {
+    // Filtra jogos do dia de hoje
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+    const todayGames = games.value.filter(game => {
+        const gameDate = new Date(game.match_date)
+        const gameDateStr = `${gameDate.getFullYear()}-${String(gameDate.getMonth() + 1).padStart(2, '0')}-${String(gameDate.getDate()).padStart(2, '0')}`
+        return gameDateStr === todayStr
+    })
+
+    if (todayGames.length === 0) {
+        shareButtonText.value = 'Sem jogos hoje'
+        setTimeout(() => { shareButtonText.value = 'Jogos do Dia' }, 2000)
+        return
+    }
+
+    const dateFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`
+    let message = `⚽ Jogos do dia ${dateFormatted}\n\n`
+
+    todayGames.forEach((game, index) => {
+        const home = getTeamName(game.home_team)
+        const away = getTeamName(game.away_team)
+        const gameDate = new Date(game.match_date)
+        const hours = String(gameDate.getHours()).padStart(2, '0')
+        const minutes = String(gameDate.getMinutes()).padStart(2, '0')
+
+        message += `🕐 ${hours}:${minutes} - ${home} × ${away}`
+        if (game.status === 'finished') message += ` (${game.home_score} × ${game.away_score})`
+        else if (game.status === 'in_progress') message += ` 🔴 ${game.home_score} × ${game.away_score}`
+        if (game.competition?.name) message += ` [${game.competition.name}]`
+        if (index < todayGames.length - 1) message += '\n'
+    })
+
+    message += `\n\n💰 Faça seus palpites!\n🔗 ${window.location.origin}/games`
+
+    try {
+        await navigator.clipboard.writeText(message)
+        shareButtonText.value = '✓ Copiado!'
+        setTimeout(() => { shareButtonText.value = 'Jogos do Dia' }, 2000)
+    } catch {
+        shareButtonText.value = 'Jogos do Dia'
+    }
 }
 
 onMounted(() => {
