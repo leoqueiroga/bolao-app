@@ -50,7 +50,6 @@ export class PredictionDto {
 }
 
 export class CreateBetDto {
-  @IsUUID()
   @IsNotEmpty()
   game_id: string;
 
