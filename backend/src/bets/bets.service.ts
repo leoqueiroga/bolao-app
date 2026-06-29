@@ -89,6 +89,10 @@ export class BetsService {
       throw new BadRequestException('This game is not accepting bets anymore');
     }
 
+    // Validação específica para penalty_winner
+    const betType = await this.getBetType(createBetDto.bet_type_id);
+    this.validatePenaltyWinner(betType.type, game, createBetDto.prediction);
+
     const { data: existingBet } = await supabase
       .from('bets')
       .select('id')
@@ -128,6 +132,11 @@ export class BetsService {
       throw new ForbiddenException('This bet cannot be edited');
     }
 
+    // Validação específica para penalty_winner ao atualizar prediction
+    if (bet.bet_type?.type === 'penalty_winner') {
+      this.validatePenaltyWinner(bet.bet_type.type, game, updateBetDto.prediction);
+    }
+
     const { data, error } = await supabase
       .from('bets')
       .update({ prediction: updateBetDto.prediction, updated_at: new Date().toISOString() })
@@ -165,16 +174,19 @@ export class BetsService {
 
     if (!profile) throw new NotFoundException(`Usuário ${adminCreateBetDto.user_id} não encontrado`);
 
-    await this.gamesService.findOne(adminCreateBetDto.game_id);
+    const game = await this.gamesService.findOne(adminCreateBetDto.game_id);
 
     const { data: betType } = await supabase
       .from('bet_types')
-      .select('id, is_active')
+      .select('id, type, is_active')
       .eq('id', adminCreateBetDto.bet_type_id)
       .single();
 
     if (!betType) throw new NotFoundException(`Tipo de palpite ${adminCreateBetDto.bet_type_id} não encontrado`);
     if (!betType.is_active) throw new BadRequestException(`Tipo de palpite ${adminCreateBetDto.bet_type_id} está inativo`);
+
+    // Validação específica para penalty_winner
+    this.validatePenaltyWinner(betType.type, game, adminCreateBetDto.prediction);
 
     const { data, error } = await supabase
       .from('bets')
@@ -284,5 +296,34 @@ export class BetsService {
       .single();
 
     return betType?.default_points || 0;
+  }
+
+  private async getBetType(betTypeId: string): Promise<{ id: string; type: string }> {
+    const supabase = this.supabaseService.getAdminClient();
+
+    const { data, error } = await supabase
+      .from('bet_types')
+      .select('id, type')
+      .eq('id', betTypeId)
+      .single();
+
+    if (error || !data) throw new NotFoundException(`Tipo de aposta não encontrado`);
+    return data;
+  }
+
+  private validatePenaltyWinner(betTypeType: string, game: any, prediction: any): void {
+    if (betTypeType !== 'penalty_winner') return;
+
+    if (!game.is_knockout) {
+      throw new BadRequestException(
+        'Apostas de vencedor de pênaltis só são válidas para partidas eliminatórias',
+      );
+    }
+
+    if (!prediction?.result || !['home_win', 'away_win'].includes(prediction.result)) {
+      throw new BadRequestException(
+        'Previsão de penalty_winner deve conter { "result": "home_win" } ou { "result": "away_win" }',
+      );
+    }
   }
 }

@@ -16,3 +16,5 @@ logs/
 .pm2/
 
 .kiro/
+database.json
+wc.json

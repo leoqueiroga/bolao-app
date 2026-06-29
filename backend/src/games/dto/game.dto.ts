@@ -102,4 +102,14 @@ export class UpdateGameDto {
   @IsDateString()
   @IsOptional()
   bets_unlock_until?: string | null;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  penalty_home_score?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  penalty_away_score?: number;
 }

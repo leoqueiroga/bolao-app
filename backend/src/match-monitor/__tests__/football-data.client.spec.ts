@@ -174,6 +174,141 @@ describe('FootballDataClient', () => {
       expect(options.signal).toBeDefined();
       // AbortSignal.timeout(10000) creates a signal that aborts after 10s
     });
+
+    it('deve mapear corretamente todos os campos do score quando presentes (duration, regularTime, extraTime, penalties)', async () => {
+      const mockResponse = {
+        id: 100,
+        status: 'FINISHED',
+        matchday: 3,
+        stage: 'ROUND_OF_16',
+        utcDate: '2024-07-01T20:00:00Z',
+        homeTeam: { id: 10, name: 'Brazil', shortName: 'BRA' },
+        awayTeam: { id: 20, name: 'Chile', shortName: 'CHI' },
+        score: {
+          duration: 'PENALTY_SHOOTOUT',
+          winner: 'HOME_TEAM',
+          fullTime: { home: 5, away: 4 },
+          halfTime: { home: 1, away: 1 },
+          regularTime: { home: 2, away: 2 },
+          extraTime: { home: 0, away: 0 },
+          penalties: { home: 3, away: 2 },
+        },
+      };
+
+      jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(new Response(JSON.stringify(mockResponse), { status: 200 }));
+
+      const result = await client.getMatch(100);
+
+      expect(result.score.duration).toBe('PENALTY_SHOOTOUT');
+      expect(result.score.regularTime).toEqual({ home: 2, away: 2 });
+      expect(result.score.extraTime).toEqual({ home: 0, away: 0 });
+      expect(result.score.penalties).toEqual({ home: 3, away: 2 });
+      expect(result.score.fullTime).toEqual({ home: 5, away: 4 });
+      expect(result.score.halfTime).toEqual({ home: 1, away: 1 });
+      expect(result.score.winner).toBe('HOME_TEAM');
+    });
+
+    it('deve mapear campos score.regularTime, score.extraTime e score.penalties como null quando ausentes na resposta da API', async () => {
+      const mockResponse = {
+        id: 200,
+        status: 'FINISHED',
+        matchday: 1,
+        stage: 'GROUP_STAGE',
+        utcDate: '2024-06-15T18:00:00Z',
+        homeTeam: { id: 1, name: 'Germany', shortName: 'GER' },
+        awayTeam: { id: 2, name: 'France', shortName: 'FRA' },
+        score: {
+          duration: 'REGULAR',
+          winner: 'HOME_TEAM',
+          fullTime: { home: 2, away: 1 },
+          halfTime: { home: 1, away: 0 },
+        },
+      };
+
+      jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(new Response(JSON.stringify(mockResponse), { status: 200 }));
+
+      const result = await client.getMatch(200);
+
+      // Campos ausentes no JSON são undefined (não lança exceção)
+      expect(result.score.regularTime).toBeUndefined();
+      expect(result.score.extraTime).toBeUndefined();
+      expect(result.score.penalties).toBeUndefined();
+      expect(result.score.duration).toBe('REGULAR');
+      expect(result.score.fullTime).toEqual({ home: 2, away: 1 });
+    });
+
+    it('deve mapear campos score.regularTime, score.extraTime e score.penalties como null quando explicitamente null na resposta da API', async () => {
+      const mockResponse = {
+        id: 300,
+        status: 'FINISHED',
+        matchday: 2,
+        stage: 'GROUP_STAGE',
+        utcDate: '2024-06-16T20:00:00Z',
+        homeTeam: { id: 3, name: 'Spain', shortName: 'ESP' },
+        awayTeam: { id: 4, name: 'Italy', shortName: 'ITA' },
+        score: {
+          duration: 'EXTRA_TIME',
+          winner: 'AWAY_TEAM',
+          fullTime: { home: 1, away: 2 },
+          halfTime: { home: 0, away: 0 },
+          regularTime: null,
+          extraTime: null,
+          penalties: null,
+        },
+      };
+
+      jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(new Response(JSON.stringify(mockResponse), { status: 200 }));
+
+      const result = await client.getMatch(300);
+
+      expect(result.score.regularTime).toBeNull();
+      expect(result.score.extraTime).toBeNull();
+      expect(result.score.penalties).toBeNull();
+      expect(result.score.duration).toBe('EXTRA_TIME');
+      expect(result.score.fullTime).toEqual({ home: 1, away: 2 });
+    });
+
+    it('deve mapear score.duration corretamente para todos os valores possíveis', async () => {
+      const durations = ['REGULAR', 'EXTRA_TIME', 'PENALTY_SHOOTOUT', null] as const;
+
+      for (const duration of durations) {
+        const mockResponse = {
+          id: 400,
+          status: 'FINISHED',
+          matchday: 1,
+          stage: 'GROUP_STAGE',
+          utcDate: '2024-06-15T18:00:00Z',
+          homeTeam: { id: 1, name: 'England', shortName: 'ENG' },
+          awayTeam: { id: 2, name: 'Portugal', shortName: 'POR' },
+          score: {
+            duration,
+            winner: 'HOME_TEAM',
+            fullTime: { home: 1, away: 0 },
+            halfTime: { home: 0, away: 0 },
+            regularTime: null,
+            extraTime: null,
+            penalties: null,
+          },
+        };
+
+        jest
+          .spyOn(global, 'fetch')
+          .mockResolvedValue(new Response(JSON.stringify(mockResponse), { status: 200 }));
+
+        const result = await client.getMatch(400);
+
+        expect(result.score.duration).toBe(duration);
+
+        jest.restoreAllMocks();
+        jest.spyOn(rateLimiterService, 'execute').mockImplementation((fn) => fn());
+      }
+    });
   });
 
   describe('getCompetitionMatches', () => {

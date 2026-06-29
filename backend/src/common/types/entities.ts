@@ -22,6 +22,8 @@ export interface Game {
   score_multiplier: number;
   home_score: number | null;
   away_score: number | null;
+  penalty_home_score: number | null;
+  penalty_away_score: number | null;
   status: 'scheduled' | 'in_progress' | 'finished' | 'postponed' | 'cancelled';
   bets_locked: boolean;
   bets_unlock_until: string | null;
@@ -39,7 +41,7 @@ export interface BetType {
   name: string;
   slug: string;
   description: string;
-  type: 'exact_score' | 'result';
+  type: 'exact_score' | 'result' | 'first_goal' | 'player_goal' | 'penalty_winner';
   default_points: number;
   is_active: boolean;
   created_at: string;
@@ -53,7 +55,7 @@ export interface Bet {
   bet_type_id: string;
   prediction: any;
   points_earned: number;
-  status: 'pending' | 'correct' | 'incorrect';
+  status: 'pending' | 'correct' | 'incorrect' | 'void';
   created_at: string;
   updated_at: string;
   game?: Game;

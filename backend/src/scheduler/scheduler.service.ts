@@ -101,13 +101,13 @@ export class SchedulerService {
 
       if (betsError) return;
 
-      const multiplier = game.score_multiplier || 1;
-      const isKnockout = game.is_knockout || false;
-      const finalMultiplier = isKnockout ? multiplier * 2 : multiplier;
+      const finalMultiplier = game.score_multiplier || 1;
+      let voidCount = 0;
 
       for (const bet of bets || []) {
         let points = 0;
         let isCorrect = false;
+        let status: 'correct' | 'incorrect' | 'void' = 'incorrect';
         const betType = bet.bet_type?.type;
         const basePoints = bet.bet_type?.default_points || 0;
 
@@ -116,18 +116,37 @@ export class SchedulerService {
             points = basePoints * finalMultiplier;
             isCorrect = true;
           }
+          status = isCorrect ? 'correct' : 'incorrect';
         } else if (betType === 'result') {
           const result = this.getGameResult(game);
           if (bet.prediction?.result === result) {
             points = basePoints * finalMultiplier;
             isCorrect = true;
           }
+          status = isCorrect ? 'correct' : 'incorrect';
+        } else if (betType === 'penalty_winner') {
+          const penaltyResult = this.evaluatePenaltyWinnerBet(bet, game);
+          if (penaltyResult === 'void') {
+            status = 'void';
+            points = 0;
+            voidCount++;
+          } else if (penaltyResult === 'correct') {
+            status = 'correct';
+            points = basePoints * finalMultiplier;
+          } else {
+            status = 'incorrect';
+            points = 0;
+          }
         }
 
         await supabase
           .from('bets')
-          .update({ points_earned: points, status: isCorrect ? 'correct' : 'incorrect' })
+          .update({ points_earned: points, status })
           .eq('id', bet.id);
+      }
+
+      if (voidCount > 0) {
+        this.logger.log(`🔇 Apostas penalty_winner marcadas como void | gameId=${gameId} count=${voidCount}`);
       }
 
       await supabase.from('games').update({ points_calculated: true }).eq('id', gameId);
@@ -144,9 +163,44 @@ export class SchedulerService {
 
   private getGameResult(game: any): 'home_win' | 'draw' | 'away_win' | null {
     if (game.home_score === null || game.away_score === null) return null;
+
+    // Se tem penalty scores válidos, o vencedor é determinado pelos pênaltis
+    if (game.penalty_home_score !== null && game.penalty_away_score !== null) {
+      if (game.penalty_home_score === game.penalty_away_score) {
+        // Estado inválido — log ERROR e fallback para comportamento sem pênaltis
+        this.logger.error(
+          `❌ Penalty scores iguais (inválido) | gameId=${game.id}`,
+        );
+        return this.getRegularTimeResult(game);
+      }
+      return game.penalty_home_score > game.penalty_away_score
+        ? 'home_win'
+        : 'away_win';
+    }
+
+    // Sem pênaltis: comportamento existente
+    return this.getRegularTimeResult(game);
+  }
+
+  private getRegularTimeResult(game: any): 'home_win' | 'draw' | 'away_win' | null {
+    if (game.home_score === null || game.away_score === null) return null;
     if (game.home_score > game.away_score) return 'home_win';
     if (game.home_score < game.away_score) return 'away_win';
     return 'draw';
+  }
+
+  private evaluatePenaltyWinnerBet(bet: any, game: any): 'correct' | 'incorrect' | 'void' {
+    if (game.penalty_home_score === null || game.penalty_away_score === null) {
+      return 'void';
+    }
+    if (game.penalty_home_score === game.penalty_away_score) {
+      this.logger.error(
+        `❌ Penalty scores iguais (inválido) | gameId=${game.id}`,
+      );
+      return 'void';
+    }
+    const winner = game.penalty_home_score > game.penalty_away_score ? 'home_win' : 'away_win';
+    return bet.prediction?.result === winner ? 'correct' : 'incorrect';
   }
 
   async updateRanking() {
@@ -155,7 +209,8 @@ export class SchedulerService {
     const { data: userPoints, error } = await supabase
       .from('bets')
       .select('user_id, points_earned')
-      .not('points_earned', 'is', null);
+      .not('points_earned', 'is', null)
+      .neq('status', 'void');
 
     if (error) {
       this.logger.error('Erro ao calcular ranking:', error);

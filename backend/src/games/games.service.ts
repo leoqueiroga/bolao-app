@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
@@ -12,6 +13,8 @@ import { CreateGameDto, UpdateGameDto } from './dto';
 
 @Injectable()
 export class GamesService {
+  private readonly logger = new Logger(GamesService.name);
+
   constructor(
     private supabaseService: SupabaseService,
     @Inject(forwardRef(() => SchedulerService))
@@ -36,7 +39,7 @@ export class GamesService {
 
     const { data, error } = await query;
     if (error) throw new BadRequestException(error.message);
-    return data;
+    return data.map((game) => this.enrichGameResponse(game));
   }
 
   async findUpcoming() {
@@ -52,10 +55,10 @@ export class GamesService {
       .limit(10);
 
     if (error) throw new BadRequestException(error.message);
-    return data;
+    return data.map((game) => this.enrichGameResponse(game));
   }
 
-  async findOne(id: string): Promise<Game> {
+  async findOne(id: string): Promise<Game & { has_penalties: boolean }> {
     const supabase = this.supabaseService.getAdminClient();
 
     const { data, error } = await supabase
@@ -66,7 +69,7 @@ export class GamesService {
       .single();
 
     if (error || !data) throw new NotFoundException('Game not found');
-    return data;
+    return this.enrichGameResponse(data);
   }
 
   async create(createGameDto: CreateGameDto): Promise<Game> {
@@ -160,14 +163,41 @@ export class GamesService {
     if (game.status !== 'finished' || game.home_score === null || game.away_score === null) {
       return null;
     }
+
+    // Se tem penalty scores válidos, o vencedor é determinado pelos pênaltis
+    if (game.penalty_home_score !== null && game.penalty_away_score !== null) {
+      if (game.penalty_home_score === game.penalty_away_score) {
+        // Estado inválido — log ERROR e fallback para comportamento sem pênaltis
+        this.logger.error(
+          `❌ Penalty scores iguais (inválido) | gameId=${game.id}`,
+        );
+        return this.getRegularTimeResult(game);
+      }
+      return game.penalty_home_score > game.penalty_away_score
+        ? 'home_win'
+        : 'away_win';
+    }
+
+    // Sem pênaltis: comportamento existente
+    return this.getRegularTimeResult(game);
+  }
+
+  private getRegularTimeResult(game: Game): 'home_win' | 'draw' | 'away_win' | null {
+    if (game.home_score === null || game.away_score === null) return null;
     if (game.home_score > game.away_score) return 'home_win';
     if (game.home_score < game.away_score) return 'away_win';
     return 'draw';
   }
 
+  private enrichGameResponse(game: Game): Game & { has_penalties: boolean } {
+    return {
+      ...game,
+      has_penalties:
+        game.penalty_home_score !== null && game.penalty_away_score !== null,
+    };
+  }
+
   getFinalScoreMultiplier(game: Game): number {
-    let multiplier = game.score_multiplier;
-    if (game.is_knockout) multiplier *= 2;
-    return multiplier;
+    return game.score_multiplier || 1;
   }
 }

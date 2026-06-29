@@ -12,8 +12,10 @@ const PRIORITY_THRESHOLD = 5; // Only apply priority ordering when >5 matches
 const CAPACITY_SATURATION_THRESHOLD = 40; // Log alert when exceeding this
 const SAFETY_TIMEOUT_MS = 180 * 60 * 1000; // 180 minutes beyond Match_End_Window
 const POLL_INTERVAL_IN_PLAY_MS = 2 * 60 * 1000; // 2 minutes
+const POLL_INTERVAL_PENALTY_MS = 60_000; // 1 minute for penalty shootout
 const POLL_INTERVAL_ERROR_MS = 1 * 60 * 1000; // 1 minute
 const MAX_CONSECUTIVE_ERRORS = 5;
+const MAX_PENALTY_RETRIES = 10;
 
 /** Status que indicam jogo em andamento */
 const IN_PLAY_STATUSES: FootballDataStatus[] = [
@@ -179,6 +181,8 @@ export class MatchMonitorService implements OnModuleInit {
       consecutiveErrors: 0,
       timeoutRef: null,
       lastPolledAt: null,
+      lastApiStatus: null,
+      penaltyRetryCount: 0,
     };
 
     // Agendar o timeout
@@ -235,6 +239,87 @@ export class MatchMonitorService implements OnModuleInit {
 
       // Status FINISHED
       if (status === 'FINISHED') {
+        const duration = match.score.duration;
+
+        // Caminho: PENALTY_SHOOTOUT — extrair regularTime + penalties
+        if (duration === 'PENALTY_SHOOTOUT') {
+          const regularHome = match.score.regularTime?.home ?? null;
+          const regularAway = match.score.regularTime?.away ?? null;
+          const penHome = match.score.penalties?.home ?? null;
+          const penAway = match.score.penalties?.away ?? null;
+
+          // Se penalties ou regularTime são nulos: retry com limite
+          if (penHome === null || penAway === null || regularHome === null || regularAway === null) {
+            if (job) {
+              job.penaltyRetryCount++;
+
+              if (job.penaltyRetryCount >= MAX_PENALTY_RETRIES) {
+                this.logger.error(
+                  `❌ Dados de pênaltis indisponíveis após 10 tentativas | gameId=${gameId}`,
+                );
+                await this.stopPolling(gameId, 'Dados de pênaltis indisponíveis após 10 tentativas');
+                return;
+              }
+
+              this.logger.warn(
+                `⚠️ FINISHED com penalties nulos | gameId=${gameId} retryCount=${job.penaltyRetryCount}/10`,
+              );
+            }
+
+            this.reschedulePolling(gameId, externalMatchId, POLL_INTERVAL_PENALTY_MS);
+            return;
+          }
+
+          // Scores válidos: zerar erros, atualizar DB com regularTime + penalties
+          if (job) {
+            job.consecutiveErrors = 0;
+            job.lastApiStatus = status;
+          }
+
+          const supabase = this.supabaseService.getAdminClient();
+          const now = new Date().toISOString();
+
+          const { error: updateError } = await supabase
+            .from('games')
+            .update({
+              status: 'finished',
+              home_score: regularHome,
+              away_score: regularAway,
+              penalty_home_score: penHome,
+              penalty_away_score: penAway,
+              updated_at: now,
+            })
+            .eq('id', gameId);
+
+          if (updateError) {
+            this.logger.error(
+              `❌ Erro ao atualizar jogo finalizado | gameId=${gameId} error=${updateError.message}`,
+            );
+            this.reschedulePolling(gameId, externalMatchId, POLL_INTERVAL_ERROR_MS);
+            return;
+          }
+
+          // Log de finalização com pênaltis (Req 7.4)
+          this.logger.log(
+            `✅ Partida finalizada (pênaltis) | gameId=${gameId} regulamentar=${regularHome}x${regularAway} penaltis=${penHome}x${penAway}`,
+          );
+
+          // Encerrar monitoramento
+          await this.stopPolling(gameId, 'Partida finalizada com sucesso');
+
+          // Calcular pontos
+          try {
+            await this.schedulerService.calculateGamePoints(gameId);
+          } catch (calcError) {
+            this.logger.error(
+              `❌ Erro ao calcular pontos | gameId=${gameId} error=${calcError instanceof Error ? calcError.message : String(calcError)}`,
+            );
+          }
+
+          return;
+        }
+
+        // Caminho: REGULAR, EXTRA_TIME ou null — extrair fullTime, manter penalty como null
         const homeScore = match.score.fullTime.home;
         const awayScore = match.score.fullTime.away;
 
@@ -250,6 +335,7 @@ export class MatchMonitorService implements OnModuleInit {
         // Scores válidos: zerar erros, atualizar DB e calcular pontos
         if (job) {
           job.consecutiveErrors = 0;
+          job.lastApiStatus = status;
         }
 
         const supabase = this.supabaseService.getAdminClient();
@@ -295,10 +381,32 @@ export class MatchMonitorService implements OnModuleInit {
         return;
       }
 
+      // Status PENALTY_SHOOTOUT: reagendar +1min, zerar erros, log primeira transição (Req 1.1, 1.2, 1.3, 1.4, 7.1)
+      // Deve ser verificado ANTES de IN_PLAY_STATUSES para garantir tratamento dedicado com intervalo reduzido
+      if (status === 'PENALTY_SHOOTOUT') {
+        if (job) {
+          job.consecutiveErrors = 0;
+
+          // Detectar primeira transição para PENALTY_SHOOTOUT e emitir log INFO apenas uma vez
+          if (job.lastApiStatus !== 'PENALTY_SHOOTOUT') {
+            this.logger.log(
+              `⚽ Partida em disputa de pênaltis | gameId=${gameId} externalMatchId=${externalMatchId}`,
+            );
+          }
+
+          job.lastApiStatus = status;
+        }
+
+        // Reagendar com intervalo reduzido de 60s (pênaltis são rápidos)
+        this.reschedulePolling(gameId, externalMatchId, POLL_INTERVAL_PENALTY_MS);
+        return;
+      }
+
       // Status in-play: reagendar +2min, zerar erros (Req 4.3)
       if (IN_PLAY_STATUSES.includes(status)) {
         if (job) {
           job.consecutiveErrors = 0;
+          job.lastApiStatus = status;
         }
         this.reschedulePolling(gameId, externalMatchId, POLL_INTERVAL_IN_PLAY_MS);
         return;
@@ -325,7 +433,11 @@ export class MatchMonitorService implements OnModuleInit {
         return;
       }
 
-      // Outros status (SCHEDULED, TIMED, PENALTY_SHOOTOUT): reagendar +2min
+      // Outros status não tratados (SCHEDULED, TIMED): reagendar +2min
+      // Nota: PENALTY_SHOOTOUT é tratado pelo handler dedicado acima (intervalo reduzido de 60s)
+      if (job) {
+        job.lastApiStatus = status;
+      }
       this.reschedulePolling(gameId, externalMatchId, POLL_INTERVAL_IN_PLAY_MS);
     } catch (error) {
       // Tratar erros HTTP 5xx ou timeout (Req 4.5)
