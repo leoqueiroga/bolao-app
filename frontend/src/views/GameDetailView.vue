@@ -124,7 +124,7 @@
                 </div>
 
                 <div class="space-y-6">
-                    <div v-for="betType in availableBetTypes" :key="betType.id"
+                    <div v-for="betType in filteredBetTypes" :key="betType.id"
                         class="border border-gray-200 rounded-lg p-4">
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="font-semibold text-gray-800">{{ betType.name }}</h3>
@@ -392,6 +392,13 @@ const canMakeBets = computed(() => {
 const isValidExactScore = computed(() => {
     const { home_score, away_score } = bets.value.exact_score
     return home_score !== null && away_score !== null && home_score >= 0 && away_score >= 0
+})
+
+const filteredBetTypes = computed(() => {
+    return availableBetTypes.value.filter((bt) => {
+        if (bt.type === 'penalty_winner') return game.value?.is_knockout
+        return true
+    })
 })
 
 const loadGame = async () => {
