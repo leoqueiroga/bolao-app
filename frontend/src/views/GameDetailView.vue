@@ -193,6 +193,26 @@
                                 Enviar Palpite
                             </button>
                         </div>
+
+                        <!-- Vencedor dos Pênaltis -->
+                        <div v-else-if="betType.type === 'penalty_winner'" class="space-y-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <button @click="bets.penalty_winner.result = 'home_win'"
+                                    :class="bets.penalty_winner.result === 'home_win' ? 'bg-copa-blue-500 text-white' : 'bg-gray-100'"
+                                    class="px-3 py-3 rounded-lg font-semibold hover:bg-copa-blue-100 transition-colors text-sm">
+                                    🏆 {{ getTeamName(game.home_team) }} vence nos pênaltis
+                                </button>
+                                <button @click="bets.penalty_winner.result = 'away_win'"
+                                    :class="bets.penalty_winner.result === 'away_win' ? 'bg-copa-blue-500 text-white' : 'bg-gray-100'"
+                                    class="px-3 py-3 rounded-lg font-semibold hover:bg-copa-blue-100 transition-colors text-sm">
+                                    🏆 {{ getTeamName(game.away_team) }} vence nos pênaltis
+                                </button>
+                            </div>
+                            <button @click="submitBet(betType.id, 'penalty_winner')" :disabled="!bets.penalty_winner.result"
+                                class="w-full px-6 py-2 bg-copa-blue-500 text-white rounded-lg font-semibold hover:bg-copa-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                                Enviar Palpite
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -312,6 +332,7 @@ const inferResultFromScore = (homeScore, awayScore) => {
 const bets = ref({
     exact_score: { home_score: null, away_score: null },
     result: { result: null },
+    penalty_winner: { result: null },
 })
 
 // Auto-infer result when exact score changes
@@ -449,6 +470,8 @@ const submitBet = async (betTypeId, betKey) => {
             bets.value.exact_score = { home_score: null, away_score: null }
         } else if (betKey === 'result') {
             bets.value.result.result = null
+        } else if (betKey === 'penalty_winner') {
+            bets.value.penalty_winner.result = null
         }
 
         await loadUserBets()
@@ -482,6 +505,10 @@ const formatBetPrediction = (bet) => {
     if (type === 'exact_score') return `${p.home_score} × ${p.away_score}`
     if (type === 'result') {
         const map = { home_win: `${game.value?.home_team} vence`, draw: 'Empate', away_win: `${game.value?.away_team} vence` }
+        return map[p.result] || p.result
+    }
+    if (type === 'penalty_winner') {
+        const map = { home_win: `${game.value?.home_team} vence nos pênaltis`, away_win: `${game.value?.away_team} vence nos pênaltis` }
         return map[p.result] || p.result
     }
     return JSON.stringify(p)
@@ -524,8 +551,8 @@ const getStatusClass = (status) => {
     return map[status] || 'bg-gray-100 text-gray-800'
 }
 
-const getBetStatusText = (status) => ({ pending: 'Pendente', correct: 'Correto', incorrect: 'Incorreto' }[status] || status)
-const getBetStatusClass = (status) => ({ pending: 'bg-yellow-500 text-white', correct: 'bg-green-500 text-white', incorrect: 'bg-red-500 text-white' }[status] || 'bg-gray-300 text-gray-700')
+const getBetStatusText = (status) => ({ pending: 'Pendente', correct: 'Correto', incorrect: 'Incorreto', void: 'Anulado' }[status] || status)
+const getBetStatusClass = (status) => ({ pending: 'bg-yellow-500 text-white', correct: 'bg-green-500 text-white', incorrect: 'bg-red-500 text-white', void: 'bg-gray-400 text-white' }[status] || 'bg-gray-300 text-gray-700')
 
 onMounted(async () => {
     loading.value = true
