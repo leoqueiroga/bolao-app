@@ -175,7 +175,7 @@
                                 <button @click="bets.result.result = 'home_win'"
                                     :class="bets.result.result === 'home_win' ? 'bg-copa-blue-500 text-white' : 'bg-gray-100'"
                                     class="px-3 py-3 rounded-lg font-semibold hover:bg-copa-blue-100 transition-colors text-sm">
-                                    {{ game.home_team }} vence
+                                    {{ getTeamName(game.home_team) }} vence
                                 </button>
                                 <button @click="bets.result.result = 'draw'"
                                     :class="bets.result.result === 'draw' ? 'bg-copa-blue-500 text-white' : 'bg-gray-100'"
@@ -185,7 +185,7 @@
                                 <button @click="bets.result.result = 'away_win'"
                                     :class="bets.result.result === 'away_win' ? 'bg-copa-blue-500 text-white' : 'bg-gray-100'"
                                     class="px-3 py-3 rounded-lg font-semibold hover:bg-copa-blue-100 transition-colors text-sm">
-                                    {{ game.away_team }} vence
+                                    {{ getTeamName(game.away_team) }} vence
                                 </button>
                             </div>
                             <button @click="submitBet(betType.id, 'result')" :disabled="!bets.result.result"
@@ -200,12 +200,12 @@
                                 <button @click="bets.penalty_winner.result = 'home_win'"
                                     :class="bets.penalty_winner.result === 'home_win' ? 'bg-copa-blue-500 text-white' : 'bg-gray-100'"
                                     class="px-3 py-3 rounded-lg font-semibold hover:bg-copa-blue-100 transition-colors text-sm">
-                                    🏆 {{ getTeamName(game.home_team) }} vence nos pênaltis
+                                    {{ getTeamName(game.home_team) }} vence nos pênaltis
                                 </button>
                                 <button @click="bets.penalty_winner.result = 'away_win'"
                                     :class="bets.penalty_winner.result === 'away_win' ? 'bg-copa-blue-500 text-white' : 'bg-gray-100'"
                                     class="px-3 py-3 rounded-lg font-semibold hover:bg-copa-blue-100 transition-colors text-sm">
-                                    🏆 {{ getTeamName(game.away_team) }} vence nos pênaltis
+                                    {{ getTeamName(game.away_team) }} vence nos pênaltis
                                 </button>
                             </div>
                             <button @click="submitBet(betType.id, 'penalty_winner')" :disabled="!bets.penalty_winner.result"
