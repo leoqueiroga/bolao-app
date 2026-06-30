@@ -164,18 +164,19 @@ export class SchedulerService {
   private getGameResult(game: any): 'home_win' | 'draw' | 'away_win' | null {
     if (game.home_score === null || game.away_score === null) return null;
 
+    const penHome = game.penalty_home_score != null ? Number(game.penalty_home_score) : null;
+    const penAway = game.penalty_away_score != null ? Number(game.penalty_away_score) : null;
+
     // Se tem penalty scores válidos, o vencedor é determinado pelos pênaltis
-    if (game.penalty_home_score !== null && game.penalty_away_score !== null) {
-      if (game.penalty_home_score === game.penalty_away_score) {
+    if (penHome !== null && penAway !== null) {
+      if (penHome === penAway) {
         // Estado inválido — log ERROR e fallback para comportamento sem pênaltis
         this.logger.error(
-          `❌ Penalty scores iguais (inválido) | gameId=${game.id}`,
+          `❌ Penalty scores iguais (inválido) | gameId=${game.id} penHome=${penHome} penAway=${penAway}`,
         );
         return this.getRegularTimeResult(game);
       }
-      return game.penalty_home_score > game.penalty_away_score
-        ? 'home_win'
-        : 'away_win';
+      return penHome > penAway ? 'home_win' : 'away_win';
     }
 
     // Sem pênaltis: comportamento existente
@@ -190,16 +191,19 @@ export class SchedulerService {
   }
 
   private evaluatePenaltyWinnerBet(bet: any, game: any): 'correct' | 'incorrect' | 'void' {
-    if (game.penalty_home_score === null || game.penalty_away_score === null) {
+    const penHome = game.penalty_home_score != null ? Number(game.penalty_home_score) : null;
+    const penAway = game.penalty_away_score != null ? Number(game.penalty_away_score) : null;
+
+    if (penHome === null || penAway === null) {
       return 'void';
     }
-    if (game.penalty_home_score === game.penalty_away_score) {
+    if (penHome === penAway) {
       this.logger.error(
-        `❌ Penalty scores iguais (inválido) | gameId=${game.id}`,
+        `❌ Penalty scores iguais (inválido) | gameId=${game.id} penHome=${penHome} penAway=${penAway}`,
       );
       return 'void';
     }
-    const winner = game.penalty_home_score > game.penalty_away_score ? 'home_win' : 'away_win';
+    const winner = penHome > penAway ? 'home_win' : 'away_win';
     return bet.prediction?.result === winner ? 'correct' : 'incorrect';
   }
 

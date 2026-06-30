@@ -840,6 +840,12 @@ const formatPrediction = (bet, game) => {
         return `Gol de: ${prediction.player_name || "Jogador"}`;
     } else if (betType === "assists" || betType === "assist") {
         return `Assistência de: ${prediction.player_name || "Jogador"}`;
+    } else if (betType === "penalty_winner") {
+        const map = {
+            home_win: `${getTeamName(game?.home_team) || "Casa"} vence nos pênaltis`,
+            away_win: `${getTeamName(game?.away_team) || "Visitante"} vence nos pênaltis`,
+        };
+        return map[prediction.result] || prediction.result;
     }
 
     return JSON.stringify(prediction);
