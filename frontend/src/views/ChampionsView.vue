@@ -1,6 +1,6 @@
 <template>
   <div class="container mx-auto px-4 py-6">
-    <h1 class="text-3xl font-bold text-copa-blue-500 mb-8 text-center">🏆 Galeria de Campeões</h1>
+    <h1 class="text-3xl font-bold text-copa-blue-500 mb-8 text-center">Galeria de Campeões</h1>
 
     <!-- Loading -->
     <div v-if="loading" class="flex justify-center py-12">
