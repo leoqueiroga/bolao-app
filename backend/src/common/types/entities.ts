@@ -89,6 +89,16 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface Champion {
+  id: string;
+  title: string;
+  image_url: string;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RankingSnapshot {
   id: string;
   user_id: string;

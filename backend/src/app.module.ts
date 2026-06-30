@@ -15,6 +15,7 @@ import { HealthModule } from './health/health.module';
 import { RankingModule } from './ranking/ranking.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { ChampionsModule } from './champions/champions.module';
 import { MatchMonitorModule } from './match-monitor/match-monitor.module';
 import { UsersModule } from './users/users.module';
 
@@ -41,6 +42,7 @@ import { UsersModule } from './users/users.module';
     DashboardModule,
     HealthModule,
     UsersModule,
+    ChampionsModule,
     SchedulerModule,
     MatchMonitorModule,
   ],

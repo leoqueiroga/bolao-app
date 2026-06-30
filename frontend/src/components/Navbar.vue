@@ -23,6 +23,9 @@
           <RouterLink to="/ranking" class="hover:bg-copa-blue-600 px-3 py-2 rounded transition">
             Ranking
           </RouterLink>
+          <RouterLink to="/champions" class="hover:bg-copa-blue-600 px-3 py-2 rounded transition">
+            Campeões
+          </RouterLink>
           <RouterLink v-if="authStore.isAdmin" to="/admin" class="hover:bg-copa-blue-600 px-3 py-2 rounded transition">
             Admin
           </RouterLink>
@@ -91,6 +94,9 @@
         </RouterLink>
         <RouterLink @click="mobileMenuOpen = false" to="/ranking" class="block hover:bg-copa-blue-600 px-3 py-2 rounded transition mb-1">
           🏆 Ranking
+        </RouterLink>
+        <RouterLink @click="mobileMenuOpen = false" to="/champions" class="block hover:bg-copa-blue-600 px-3 py-2 rounded transition mb-1">
+          🏅 Campeões
         </RouterLink>
         <RouterLink v-if="authStore.isAdmin" @click="mobileMenuOpen = false" to="/admin" class="block hover:bg-copa-blue-600 px-3 py-2 rounded transition mb-1">
           ⚙️ Admin

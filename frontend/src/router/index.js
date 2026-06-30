@@ -50,6 +50,12 @@ const router = createRouter({
             meta: { requiresAuth: true },
         },
         {
+            path: "/champions",
+            name: "champions",
+            component: () => import("@/views/ChampionsView.vue"),
+            meta: { requiresAuth: true },
+        },
+        {
             path: "/profile",
             name: "profile",
             component: () => import("@/views/ProfileView.vue"),
@@ -77,6 +83,12 @@ const router = createRouter({
             path: "/admin/users",
             name: "admin-users",
             component: () => import("@/views/admin/UsersManagement.vue"),
+            meta: { requiresAuth: true, requiresAdmin: true },
+        },
+        {
+            path: "/admin/champions",
+            name: "admin-champions",
+            component: () => import("@/views/admin/ChampionsManagement.vue"),
             meta: { requiresAuth: true, requiresAdmin: true },
         },
     ],

@@ -9,8 +9,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Limite explícito de payload para prevenir DoS
-  app.use(express.json({ limit: '100kb' }));
-  app.use(express.urlencoded({ limit: '100kb', extended: true }));
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
   // Security headers com configuração restritiva
   app.use(
