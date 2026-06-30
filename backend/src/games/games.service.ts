@@ -164,13 +164,25 @@ export class GamesService {
       return null;
     }
 
+    // Apostas de resultado usam o placar do tempo regulamentar (home_score/away_score)
+    // Em partidas com pênaltis, home_score/away_score contém o regularTime (empate)
+    return this.getRegularTimeResult(game);
+  }
+
+  /**
+   * Retorna o vencedor efetivo da partida (considerando pênaltis).
+   * Usado apenas para apostas do tipo penalty_winner.
+   */
+  getEffectiveWinner(game: Game): 'home_win' | 'draw' | 'away_win' | null {
+    if (game.status !== 'finished' || game.home_score === null || game.away_score === null) {
+      return null;
+    }
+
     const penHome = game.penalty_home_score != null ? Number(game.penalty_home_score) : null;
     const penAway = game.penalty_away_score != null ? Number(game.penalty_away_score) : null;
 
-    // Se tem penalty scores válidos, o vencedor é determinado pelos pênaltis
     if (penHome !== null && penAway !== null) {
       if (penHome === penAway) {
-        // Estado inválido — log ERROR e fallback para comportamento sem pênaltis
         this.logger.error(
           `❌ Penalty scores iguais (inválido) | gameId=${game.id} penHome=${penHome} penAway=${penAway}`,
         );
@@ -179,7 +191,6 @@ export class GamesService {
       return penHome > penAway ? 'home_win' : 'away_win';
     }
 
-    // Sem pênaltis: comportamento existente
     return this.getRegularTimeResult(game);
   }
 

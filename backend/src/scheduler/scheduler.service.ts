@@ -118,7 +118,9 @@ export class SchedulerService {
           }
           status = isCorrect ? 'correct' : 'incorrect';
         } else if (betType === 'result') {
-          const result = this.getGameResult(game);
+          // Apostas de resultado usam o placar do tempo regulamentar (home_score/away_score)
+          // Em partidas com pênaltis, o tempo regulamentar é empate — quem apostou empate acertou
+          const result = this.getRegularTimeResult(game);
           if (bet.prediction?.result === result) {
             points = basePoints * finalMultiplier;
             isCorrect = true;
@@ -161,32 +163,12 @@ export class SchedulerService {
     }
   }
 
-  private getGameResult(game: any): 'home_win' | 'draw' | 'away_win' | null {
-    if (game.home_score === null || game.away_score === null) return null;
-
-    const penHome = game.penalty_home_score != null ? Number(game.penalty_home_score) : null;
-    const penAway = game.penalty_away_score != null ? Number(game.penalty_away_score) : null;
-
-    // Se tem penalty scores válidos, o vencedor é determinado pelos pênaltis
-    if (penHome !== null && penAway !== null) {
-      if (penHome === penAway) {
-        // Estado inválido — log ERROR e fallback para comportamento sem pênaltis
-        this.logger.error(
-          `❌ Penalty scores iguais (inválido) | gameId=${game.id} penHome=${penHome} penAway=${penAway}`,
-        );
-        return this.getRegularTimeResult(game);
-      }
-      return penHome > penAway ? 'home_win' : 'away_win';
-    }
-
-    // Sem pênaltis: comportamento existente
-    return this.getRegularTimeResult(game);
-  }
-
   private getRegularTimeResult(game: any): 'home_win' | 'draw' | 'away_win' | null {
     if (game.home_score === null || game.away_score === null) return null;
-    if (game.home_score > game.away_score) return 'home_win';
-    if (game.home_score < game.away_score) return 'away_win';
+    const homeScore = Number(game.home_score);
+    const awayScore = Number(game.away_score);
+    if (homeScore > awayScore) return 'home_win';
+    if (homeScore < awayScore) return 'away_win';
     return 'draw';
   }
 
