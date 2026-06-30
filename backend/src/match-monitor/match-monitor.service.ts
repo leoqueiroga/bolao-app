@@ -332,6 +332,31 @@ export class MatchMonitorService implements OnModuleInit {
           return;
         }
 
+        // Proteção: se regularTime existe e é diferente de fullTime, provavelmente houve prorrogação/pênaltis
+        // mas duration veio null. Reagendar para esperar dados completos.
+        if (match.score.regularTime && match.score.regularTime.home !== null) {
+          const regHome = match.score.regularTime.home;
+          const regAway = match.score.regularTime.away;
+          if (regHome !== homeScore || regAway !== awayScore) {
+            // fullTime diverge de regularTime — provavelmente pênaltis/prorrogação sem duration preenchido
+            if (job) {
+              job.penaltyRetryCount++;
+              if (job.penaltyRetryCount >= MAX_PENALTY_RETRIES) {
+                // Após 10 tentativas, salvar com os dados disponíveis (fullTime) como fallback
+                this.logger.warn(
+                  `⚠️ duration não preenchido após 10 tentativas, usando fullTime como fallback | gameId=${gameId}`,
+                );
+              } else {
+                this.logger.warn(
+                  `⚠️ FINISHED com duration=${duration} mas fullTime≠regularTime, aguardando dados completos | gameId=${gameId} retryCount=${job.penaltyRetryCount}/10`,
+                );
+                this.reschedulePolling(gameId, externalMatchId, POLL_INTERVAL_PENALTY_MS);
+                return;
+              }
+            }
+          }
+        }
+
         // Scores válidos: zerar erros, atualizar DB e calcular pontos
         if (job) {
           job.consecutiveErrors = 0;
