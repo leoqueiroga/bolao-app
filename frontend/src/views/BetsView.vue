@@ -410,6 +410,9 @@ const formatBetPrediction = (bet) => {
     } else if (bet.bet_type?.type === "result") {
         const resultMap = { home_win: "Casa vence", draw: "Empate", away_win: "Visitante vence" };
         return resultMap[prediction.result] || prediction.result;
+    } else if (bet.bet_type?.type === "penalty_winner") {
+        const penaltyMap = { home_win: "Casa vence nos pênaltis", away_win: "Visitante vence nos pênaltis" };
+        return penaltyMap[prediction.result] || prediction.result;
     }
 
     return JSON.stringify(prediction);
